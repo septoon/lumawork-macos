@@ -1,0 +1,28 @@
+// !$*UTF8*$!
+{
+    archiveVersion = 1;
+    classes = {};
+    objectVersion = 77;
+    objects = {
+        E10000000000000000000001 = {isa = PBXProject; attributes = {BuildIndependentTargetsInParallel = 1; LastUpgradeCheck = 2630; TargetAttributes = {E10000000000000000000005 = {CreatedOnToolsVersion = 26.3; }; }; }; buildConfigurationList = E10000000000000000000010; compatibilityVersion = "Xcode 16.0"; developmentRegion = ru; hasScannedForEncodings = 0; knownRegions = (ru, en, Base); mainGroup = E10000000000000000000002; packageReferences = (E10000000000000000000020); preferredProjectObjectVersion = 77; productRefGroup = E10000000000000000000004; projectDirPath = ""; projectRoot = ""; targets = (E10000000000000000000005); };
+        E10000000000000000000002 = {isa = PBXGroup; children = (E10000000000000000000003, E10000000000000000000004); sourceTree = "<group>"; };
+        E10000000000000000000003 = {isa = PBXFileSystemSynchronizedRootGroup; exceptions = (E10000000000000000000009); path = LumaWorkMac; sourceTree = "<group>"; };
+        E10000000000000000000004 = {isa = PBXGroup; children = (E10000000000000000000006); name = Products; sourceTree = "<group>"; };
+        E10000000000000000000005 = {isa = PBXNativeTarget; buildConfigurationList = E10000000000000000000011; buildPhases = (E10000000000000000000007, E10000000000000000000008, E1000000000000000000000A); buildRules = (); dependencies = (); fileSystemSynchronizedGroups = (E10000000000000000000003); name = EngineerMac; packageProductDependencies = (E10000000000000000000021); productName = EngineerMac; productReference = E10000000000000000000006; productType = "com.apple.product-type.application"; };
+        E10000000000000000000006 = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = EngineerMac.app; sourceTree = BUILT_PRODUCTS_DIR; };
+        E10000000000000000000007 = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
+        E10000000000000000000008 = {isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (E10000000000000000000022); runOnlyForDeploymentPostprocessing = 0; };
+        E10000000000000000000009 = {isa = PBXFileSystemSynchronizedBuildFileExceptionSet; membershipExceptions = (Resources/Info.plist, EngineerMac.entitlements); target = E10000000000000000000005; };
+        E1000000000000000000000A = {isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
+        E10000000000000000000010 = {isa = XCConfigurationList; buildConfigurations = (E10000000000000000000012, E10000000000000000000013); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
+        E10000000000000000000011 = {isa = XCConfigurationList; buildConfigurations = (E10000000000000000000014, E10000000000000000000015); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
+        E10000000000000000000012 = {isa = XCBuildConfiguration; name = Debug; buildSettings = {CLANG_ENABLE_MODULES = YES; CLANG_ENABLE_OBJC_ARC = YES; DEBUG_INFORMATION_FORMAT = dwarf; ENABLE_TESTABILITY = YES; ONLY_ACTIVE_ARCH = YES; MACOSX_DEPLOYMENT_TARGET = 15.6.1; SDKROOT = macosx; SWIFT_OPTIMIZATION_LEVEL = "-Onone"; SWIFT_VERSION = 5.0; SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)"; }; };
+        E10000000000000000000013 = {isa = XCBuildConfiguration; name = Release; buildSettings = {CLANG_ENABLE_MODULES = YES; CLANG_ENABLE_OBJC_ARC = YES; DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym"; MACOSX_DEPLOYMENT_TARGET = 15.6.1; SDKROOT = macosx; SWIFT_COMPILATION_MODE = wholemodule; SWIFT_OPTIMIZATION_LEVEL = "-O"; SWIFT_VERSION = 5.0; }; };
+        E10000000000000000000014 = {isa = XCBuildConfiguration; name = Debug; buildSettings = {CODE_SIGN_ENTITLEMENTS = LumaWorkMac/EngineerMac.entitlements; CODE_SIGN_STYLE = Automatic; CURRENT_PROJECT_VERSION = 1; ENABLE_APP_SANDBOX = YES; ENABLE_HARDENED_RUNTIME = YES; GENERATE_INFOPLIST_FILE = NO; INFOPLIST_FILE = LumaWorkMac/Resources/Info.plist; LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks"; MACOSX_DEPLOYMENT_TARGET = 15.6.1; MARKETING_VERSION = 0.1.0; PRODUCT_BUNDLE_IDENTIFIER = septon.LumaWork.mac; PRODUCT_NAME = "$(TARGET_NAME)"; SUPPORTED_PLATFORMS = macosx; SWIFT_EMIT_LOC_STRINGS = YES; SWIFT_VERSION = 5.0; }; };
+        E10000000000000000000015 = {isa = XCBuildConfiguration; name = Release; buildSettings = {CODE_SIGN_ENTITLEMENTS = LumaWorkMac/EngineerMac.entitlements; CODE_SIGN_STYLE = Automatic; CURRENT_PROJECT_VERSION = 1; ENABLE_APP_SANDBOX = YES; ENABLE_HARDENED_RUNTIME = YES; GENERATE_INFOPLIST_FILE = NO; INFOPLIST_FILE = LumaWorkMac/Resources/Info.plist; LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks"; MACOSX_DEPLOYMENT_TARGET = 15.6.1; MARKETING_VERSION = 0.1.0; PRODUCT_BUNDLE_IDENTIFIER = septon.LumaWork.mac; PRODUCT_NAME = "$(TARGET_NAME)"; SUPPORTED_PLATFORMS = macosx; SWIFT_EMIT_LOC_STRINGS = YES; SWIFT_VERSION = 5.0; }; };
+        E10000000000000000000020 = {isa = XCLocalSwiftPackageReference; relativePath = Packages/EngineerCore; };
+        E10000000000000000000021 = {isa = XCSwiftPackageProductDependency; package = E10000000000000000000020; productName = EngineerCore; };
+        E10000000000000000000022 = {isa = PBXBuildFile; productRef = E10000000000000000000021; };
+    };
+    rootObject = E10000000000000000000001;
+}

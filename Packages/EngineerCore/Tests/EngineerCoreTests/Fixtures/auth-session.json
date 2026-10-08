@@ -1,0 +1,1 @@
+{"token":"fixture-token-not-valid","user":{"id":"fixture-user-A","email":"engineer@example.invalid","role":"engineer","adminPermissions":null,"avatarUrl":null,"profile":{"firstName":"Иван","lastName":"Тестов","personnelNumber":"0000123","vehicleVin":"000SYNTHETICVIN001","extraField":"ignored"}},"extraServerField":true}
