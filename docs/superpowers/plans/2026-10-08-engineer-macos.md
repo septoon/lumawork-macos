@@ -1,6 +1,6 @@
 # «Инженер» для macOS — спецификация и план реализации
 
-> **Актуальная задача / передача 08.10.2026:** минимальное окружение подготовлено, в новом чате пользователь поручил продолжить реализацию. Добавлена auth/storage/lifecycle основа этапа 2; production runtime и рабочие домены ещё не подтверждены. Прочитайте раздел 24 перед продолжением. Все изменения и проверки вносить в этот план. 08.10.2026 пользователь ответил «делай» на предложение первого локального commit и следующего desktop-shell этапа. Первый local commit разрешён; push, публикация и VPS не разрешены. Чекбоксы отмечаются по фактическому результату.
+> **Актуальная задача / передача 08.10.2026:** минимальное окружение подготовлено, в новом чате пользователь поручил продолжить реализацию. Добавлены auth/storage/lifecycle основа этапа 2 и desktop shell этапа 3. Реальный SO login подтверждён пользователем и текущим UI. Добавлена первая рабочая часть этапа 4: маршрут POS/АРМ, локальный черновик, server send/reconciliation и архив; карта/ГСМ/топливо впереди. Прочитайте раздел 24 перед продолжением. Все изменения и проверки вносить в этот план. 08.10.2026 пользователь ответил «делай» на предложение первого локального commit и следующего desktop-shell этапа. Первый local commit выполнен. Позже 08.10.2026 пользователь создал `septoon/lumawork-macos` и прямо поручил связать проект, commit/push и продолжать работу. Публикация бинарника и VPS не поручены. Чекбоксы отмечаются по фактическому результату.
 >
 > **Приоритет уточнения:** приложение полностью отдельное и независимое, с тем же серверным контрактом. Указания ниже об извлечении shared code в iOS, common package обеих платформ и изменении iOS target являются исходной схемой и **заменены этим уточнением**; iOS/backend используются только read-only. Новые файлы принадлежат этому Mac-проекту.
 
@@ -621,8 +621,8 @@ Window view сообщает active demand/выбранный scope, но не �
 
 **Интерфейс:** `MacWorkspaceState` содержит window ID, selected section/entity IDs, filters и inspector visibility; приватных DTO в restoration нет. Focused command action доступен только активному окну и валидной selection.
 
-- [ ] Tests: два windows имеют разные selection; commands targeting; restored invalid/unauthorized section возвращается к разрешённому разделу.
-- [ ] Реализовать NavigationSplitView, theme, Settings scene, Cmd shortcuts, context menus и system focus behavior.
+- [x] Tests: два windows имеют разные selection; commands targeting; restored invalid/unauthorized section возвращается к разрешённому разделу. 5/5 unhosted tests; независимость selection и focused menu navigation также проверены в двух запущенных окнах.
+- [x] Реализовать NavigationSplitView, theme, Settings scene, Cmd shortcuts, context menus и system focus behavior. Shell/account sheet готовы; domain actions и editor shortcuts добавляются вместе с реальными разделами.
 - [ ] Сначала штатный UI Sequoia 15.6.1; на 26+ проверить автоматическое оформление native chrome и добавить лишь обоснованные guarded glass APIs. Удалить заливки, мешающие системному glass. Проверить одинаковые actions/layout в обеих ветках.
 - [ ] При dirty draft реализовать save-local/discard/cancel; на switch/logout/terminate каждый доступный dirty editor участвует в проверке.
 - [ ] UI tests: 1000 × 640, 1280 × 820, widescreen/fullscreen, hidden inspector/sidebar, tab navigation и menu enablement.
@@ -638,11 +638,11 @@ Window view сообщает active demand/выбранный scope, но не �
 
 **Новый interface:** `RouteDayKey: Hashable(date: String, workType: RouteWorkType)`; repository `load(_ key: RouteDayKey) async throws -> RouteDayRecord`, `send(_ record: RouteDayRecord, for key: RouteDayKey) async throws`. `MacRouteDraftController` хранит key/base/local draft и вызывает тот же `RouteDayService.sendDay(_:date:)`; repository methods не вводят новый server API.
 
-- [ ] `RouteContractTests.testPOSAndARMRequestShapes`: date/type/stop sequence/null coordinates/status labels совпадают.
-- [ ] `RouteDraftTests`: разные даты двух окон; reorder/draft cancel; обязательные endpoints; server ID reconciliation после upsert.
-- [ ] `RouteSendRecoveryTests`: потерянный POST response + matched GET — один успешный результат; mismatch — не false success.
+- [x] `RouteContractTests.testPOSAndARMRequestShapes`: date/type/stop sequence/null coordinates/status labels совпадают.
+- [x] `RouteDraftTests`: разные даты двух окон; reorder/draft cancel; обязательные endpoints; server ID reconciliation после upsert.
+- [x] `RouteSendRecoveryTests`: потерянный POST response + matched GET — один успешный результат; mismatch — не false success.
 - [ ] Реализовать desktop route editor/summary/date popup, fuel add action, existing map calculation/manual correction и archive/odometer/GSM entry.
-- [ ] `RouteConflictTests`: remote fingerprint changed не заменяет draft; тест документирует оставшуюся гонку без CAS.
+- [x] `RouteConflictTests`: remote fingerprint changed не заменяет draft; тест документирует оставшуюся гонку без CAS.
 - [ ] Проверить export/send confirmation, offline route queue/relaunch и monthly mileage → fuel callback (пока Fuel UI может быть ещё не реализован).
 
 **Готово:** сквозной Mac login → день POS/ARM → локальное редактирование → прежняя server send → reload; iOS читает те же поля. Server write runtime check только в разрешённом тестовом scope.
@@ -944,8 +944,38 @@ xcrun stapler validate /actual/path/Инженер.app
 ### Продолжение: desktop shell — 08.10.2026
 
 - Пользователь подтвердил «делай» после предложения первого commit и следующего этапа. Выполняется первый local commit baseline+auth, затем desktop shell в текущем самостоятельном checkout/feature branch; новый worktree не нужен для этого последовательного этапа. Push/remote/production не настраивать без указания.
+- **Local commit:** `732bfda` — independent baseline/auth, 45 files; рабочее дерево сразу после commit чистое. Remote отсутствует, push не выполнялся.
+- **Steering:** пользователь показал реальный app login и SO HTTP500. Desktop shell ещё не изменялся; сначала расследовать реальный SO login→me path, сравнить runtime origin/контракт, не извлекать и не печатать credentials.
 - Текущая source baseline: 42/42 package tests PASS; явный secret-pattern scan новых файлов не нашёл private keys/API keys/JWT. Build — BUILD SUCCEEDED; staged diff check выявил лишние пустые строки EOF в двух baseline enums, они удалены без изменения поведения.
-- План этапа: window-owned workspace state и permission-safe selection; нативный NavigationSplitView/sidebar, account sheet и focused commands. Реальные domain actions добавляются только с соответствующим разделом; не создавать фиктивный inspector/search/dirty draft UI.
+- **SO HTTP500 investigation:** configured `/v1` origin совпадает с read-only iOS config. Read-only endpoint probes: GET login=405, GET me=401. Один POST с синтетическим несуществующим логином дал HTTP500, JSON ERROR/errors.message=`Wrong username or password`. Mac отбрасывал envelope до status handling; исправлен typed invalidCredentials для этого ответа, unknown500 сохраняет status+объяснение. Добавлена диагностика method/path/status без credentials/body. Реальные credentials пользователя не извлекались и не отправлялись агентом. Причина именно его отказа пока не установлена; это не proof успешного SO login.
+- **SO normalization parity:** iOS store trims username и password; Mac ранее trim только username. Regression воспроизвёл trailing whitespace в wire password; теперь normalization совпадает. Изменение не названо причиной конкретного пользовательского отказа.
+- **Desktop shell implementation:** `MacWorkspaceState` принадлежит окну, хранит section и account-sheet presentation. SceneStorage содержит только raw section и opaque app userID для account-scoped restoration. Native `NavigationSplitView`/flat sidebar, системный sidebar toggle, toolbar/account sheet, focusedSceneValue для sections/account/connection/logout; command navigation повторно читает текущие permissions. Account/SO forms перенесены в sheet. Domain screens честно unavailable; inspector/search/dirty draft/save не добавляются до реального редактора.
+- **Native test boundary:** собственный unhosted `EngineerMacTests` target компилирует production workspace state и navigation target напрямую с EngineerCore; app executable не служит test host, поэтому Keychain/сеть не запускаются. RED missing workspace source, затем 5/5 PASS: независимость окон, permission-safe restoration, account switch/logout, dispatch target/current permissions, admin role без grants. Command focus в SwiftUI отдельно проверяется runtime; model tests не названы GUI proof.
+- **Current checks:** package 45/45 PASS, native 5/5 PASS, app BUILD SUCCEEDED; auth HTTP500/parsing/normalization RED→GREEN. Launch через `./script/build_and_run.sh --verify` успешен. Независимый reviewer не нашёл Critical/Important замечаний; `git diff --check` чистый.
+
+- **Runtime shell:** первое окно сохранило «Заявки», второе через Cmd+N открыло «Главная»; меню «Разделы» изменило только второе окно на «Топливо». Cmd+W закрыл второе окно, selection первого сохранилась. Account sheet открывается toolbar action и закрывается Escape. Это focused smoke, не полный UI/accessibility/platform acceptance.
+- **Runtime SO:** пользователь сообщил «авторизовался»; в текущем native UI вместо login form наблюдались SO profile и «Выйти из SimpleOne». Успешный login подтверждён, точная причина первоначального HTTP500 не установлена. Credentials и персональные данные в fixtures/plan не записывались.
+- **Git:** первый baseline commit `732bfda` существует; текущий SO fix, desktop shell, native tests и journal остаются незакоммиченными. Remote/push отсутствуют.
+
+### Продолжение: первая route вертикаль — 08.10.2026
+
+- Пользователь поручил связать проект с `https://github.com/septoon/lumawork-macos` и выполнить commit/push; remote пустой, PUBLIC, GH CLI доступен. SSH publickey отказал; используем HTTPS с существующей GH авторизацией.
+- Пользователь передал `icon_lw.png` как окончательную иконку. Подключён Mac AppIcon asset catalog (16–1024px) с исходной композицией; runtime dependency на внешний файл отсутствует.
+- Пользователь поручил продолжить реализацию. Сохраняем предыдущий незакоммиченный shell/SO increment; новых commit/push нет.
+- Прочитаны реальные RouteDayService, RouteLocalStorage, HomeRouteStores, AppModels и backend GET/upsert validators. Добавлен синтетический barrier route-days/route-send-arm до domain code.
+- Ruling: app-owned keyed repository, window-owned draft. Проверка remote fingerprint перед POST и read-back при неопределённом результате; серверный CAS отсутствует, гонка между preflight и POST остаётся. Возвращать server IDs из upsert/read-back вместо сохранения local IDs.
+- Contract/API: 6 новых tests, request/response aliases и lost-response reconciliation GREEN. iOS derives reportedDistanceKm из distanceKm; fixture assertion исправлен по прочитанному source, серверный reportedDistanceKm не переопределяет прежний display helper.
+- Repository/draft: account/epoch gates, encrypted cached remote+local revision, conflict preflight, manual queued retry/read-back и disk-failure rollback. 63/63 package tests GREEN; UI model/window close guard и native route editor/archive уже собираются. Runtime и final review впереди.
+- Ruling: первая рабочая часть этапа 4 — маршрут/day editor, локальное сохранение, server send/reload и архив. Карта/ГСМ/топливо подключаются только с реальными контрактами; не добавлять fake actions.
+
+
+### Проверка и подготовка GitHub — 09.10.2026
+
+- По прямому требованию пользователя расширен `.gitignore`: Secrets/local xcconfig, env, credentials/session JSON, signing keys/profiles, базы, authenticated snapshots, screenshots/diagnostics, bundles и build outputs. Synthetic contract fixtures и AppIcon остаются в Git.
+- Добавлен `scripts/check-git-secrets.py`: staged tree + reachable history, sensitive filenames/private keys/known token formats/JWT/URL credentials; вывод только path/category, без значений. Проверка эвристическая, дополнительно просматривается staged diff. Никакие Keychain/session данные не читались для публикации.
+- Один независимый readonly route review завершён. Исправлены найденные проблемы: nil base сохранённого нового дня; отсутствие удалённого remote не подменяется default; local sent receipt; explicit recovery другого window draft с подтверждением замены; rollback discard/send draft при disk failure; GET дня/архива во время POST не перезаписывает confirmed snapshot (per-day generation + archive generation); readback 401 остаётся auth failure.
+- Regression tests прошли RED до исправлений и GREEN после. Core: **70/70 PASS** (`.codex-tmp/route-publish-core.log`). Native build: **BUILD SUCCEEDED** (`.codex-tmp/route-publish-build.log`). Native tests: **5/5 PASS**, **TEST SUCCEEDED** (`.codex-tmp/route-publish-native.log`). Staged tree + вся reachable history: 103 blobs, 0 secret findings; synthetic private-key/path positive probe корректно BLOCKED, ignore/non-ignore probes PASS; credential-literal review и diff check выполнены перед push. Push receipt фиксируется после выполнения.
+- Добавлен README с реальным scope, build/test/run и secret check. iOS checkout проверен: чистый, не изменён.
 
 ## 23. Источники и правила обновления плана
 
@@ -963,13 +993,13 @@ xcrun stapler validate /actual/path/Инженер.app
 
 При изменении исходников сначала обновляются source inventory и fixtures; при изменении API это больше не «Mac UI-only adaptation» и требуется отдельное решение. Не записывать здесь фактические production credentials, данные пользователей или неподтверждённые PASS.
 
-## 24. Передача в новый чат — auth foundation добавлен
+## 24. Передача в новый чат — auth, desktop shell и маршрут добавлены
 
 **Открыть как проект:** `/Users/tigrandarcinan/projects/github/luma-work/lumawork-macos`. Это самостоятельный Git repo; Xcode project `EngineerMac.xcodeproj`, scheme `EngineerMac`, product `EngineerMac.app` (имя пользователю «Инженер»). iOS для сборки не требуется.
 
-**Текущий scope по поручению нового чата 08.10.2026:** продолжить реализацию по плану. Auth/storage foundation этапа 2 завершён на source/package уровне. Пользователь подтвердил первый local commit и продолжение desktop shell этапа 3 сообщением «делай». Domain repositories и их side effects подключаются при переносе соответствующих разделов; фиктивный refresh Home не добавлять. Push и production mutations не разрешены. У этапа 0 остаётся неполная domain fixture matrix.
+**Текущий scope по поручению нового чата 08.10.2026:** продолжить реализацию по плану. Auth/storage foundation этапа 2 завершён на source/package уровне. Пользователь подтвердил первый local commit и продолжение desktop shell этапа 3 сообщением «делай». Domain repositories и их side effects подключаются при переносе соответствующих разделов; фиктивный refresh Home не добавлять. Commit/push в `septoon/lumawork-macos` прямо разрешены последним поручением пользователя. Production mutations и публикация бинарника не поручены. У этапа 0 остаётся неполная domain fixture matrix.
 
-**Где продолжить:** реализовать этап 3 — полноценный desktop shell с window-owned selection/filters и focused commands; затем fixtures и первая route вертикаль этапа 4. Auth API/DTO, `EngineerApplicationCoordinator`, `MacSessionContainer`, native Keychain/login forms и encrypted scoped store уже существуют: не дублировать их. При подключении первого domain repository проверять context до/после await и перед storage/UI publication, добавить cancellation/generation regression на domain snapshot. Home/fuel/archive side effects ещё не реализованы. Не считать нынешний авторизованный `MacRootView` production Home. Runtime gaps этапа 2 ниже остаются открытыми.
+**Где продолжить:** первая часть этапа 4 реализована: app-owned `RouteDayRepository`, window-owned `RouteDraftController`, native Table/inspector, POS/АРМ, архив с локальным фильтром месяца, encrypted cache/drafts, manual queued retry, preflight conflict и readback без повторного POST. Следующие части — существующая карта/расчёт маршрута, ГСМ/топливо, затем заявки этапа 5. Не дублировать существующие auth/API/store. Automatic queue processing ещё не реализован. Перед следующим переносом расширить synthetic fixture barrier и прочитать iOS/backend source read-only.
 
 **Команды из нового project root:**
 
@@ -977,6 +1007,10 @@ xcrun stapler validate /actual/path/Инженер.app
 ./scripts/test-engineer-core.sh
 ./scripts/build-macos.sh
 ./script/build_and_run.sh --verify
+```
+
+```bash
+xcodebuild -project EngineerMac.xcodeproj -scheme EngineerMac -configuration Debug -destination 'platform=macOS' -derivedDataPath .codex-tmp/macos-derived-data -only-testing:EngineerMacTests CODE_SIGNING_ALLOWED=NO test
 ```
 
 **Локальные артефакты:** `.codex-tmp/macos-derived-data/Build/Products/Debug/EngineerMac.app`; `.codex-tmp/macos-build.log`; `.codex-tmp/engineer-core-tests.log`; baseline iOS/archive logs скопированы в `.codex-tmp/baseline/`. Это generated/ignored material, не release.
@@ -1005,7 +1039,9 @@ script/build_and_run.sh
 docs/superpowers/plans/2026-10-08-engineer-macos.md
 ```
 
-**Что не доказано после auth increment:** реальный email/SO login и authenticated parity, Keychain ACL/restore/logout tombstones в signed sandbox/после restart, runtime offline restore/account switch/sleep-wake/multiwindow; весь domain fixture barrier и подключение scoped storage к реальным repositories; window drafts/commands targeting и реальные разделы; Touch ID/PIN и реальные sensitive previews; signed file panels, notification/widget/App Intents, Intel/Sequoia styling/accessibility beyond startup, macOS 26+ appearance, performance, Developer ID/notarization/distribution. `AppIntents metadata extraction skipped` — ожидаемое предупреждение: App Intents target/API ещё не подключены. Hardened runtime выключен для текущего unsigned Debug, signed validation впереди.
+**Что подтверждено runtime:** app authenticated workspace, успешный SO login (сообщение пользователя и native account UI), независимость selection двух окон, focused section command, Cmd+W и Escape account sheet. Реальный GET дня отрисовал упорядоченный маршрут и native inspector; редактирование mileage второго окна не изменило первое; Cmd+W → Cancel сохранил несохранённые изменения. Agent не выполнял live POST и не сохранял синтетические изменения production дня. После закрытия окна «Не сохранять» UI-инструмент потерял доступ; process sample показывал штатный idle event loop, зависание приложения не подтверждено. Полный close/logout/terminate guard runtime matrix остаётся gap.
+
+**Что не доказано после shell increment:** полный email-code flow и authenticated domain parity, Keychain ACL/restore/logout tombstones в signed sandbox/после restart, runtime offline restore/account switch/sleep-wake/logout across windows; полный domain fixture barrier; close/logout/terminate drafts across windows; остальные рабочие разделы; Touch ID/PIN и реальные sensitive previews; signed file panels, notification/widget/App Intents, Intel/Sequoia styling/accessibility beyond startup, macOS 26+ appearance, performance, Developer ID/notarization/distribution. `AppIntents metadata extraction skipped` — ожидаемое предупреждение: App Intents target/API ещё не подключены. Hardened runtime выключен для текущего unsigned Debug, signed validation впереди.
 
 **Read-only references при переносе:** iOS `/Users/tigrandarcinan/projects/github/luma-work/LumaWork` @ `051b022`; package fixture manifest содержит SHA-256 использованных source units. Отсутствие этого соседнего checkout не мешает сборке/тестам Mac.
 

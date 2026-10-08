@@ -43,7 +43,7 @@ public enum RouteWorkType: String, CaseIterable, Codable, Hashable, Identifiable
     }
 }
 
-public enum RouteStopStatus: String, Codable, Hashable {
+public enum RouteStopStatus: String, Codable, Hashable, CaseIterable, Sendable {
     case pending
     case done
     case declined

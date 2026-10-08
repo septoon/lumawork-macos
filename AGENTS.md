@@ -12,4 +12,4 @@
 - SwiftUI/AppKit UI должен быть нативным, компактным, semantic colors и доступным с клавиатуры. API macOS 26+ только с availability guards.
 - После правок запускай минимальную релевантную проверку. Сборка не доказывает runtime, Touch ID, sandbox, multiwindow или производительность. Тяжёлые/визуальные проверки — только при необходимости.
 - Сборка: `./scripts/build-macos.sh`; tests: `./scripts/test-engineer-core.sh`; запуск: `./script/build_and_run.sh` (также Codex Run).
-- Commit/push, деплой, публикация, миграции и опасные операции — только по прямому поручению пользователя. Git remote пока не настроен. В конце показывай status/diff и предлагай commit/push лишь когда это уместно.
+- Commit/push, деплой, публикация, миграции и опасные операции — только по прямому поручению пользователя. Git remote: `https://github.com/septoon/lumawork-macos.git`. Пользователь поручил commit/push 08.10.2026; сохранять это разрешение для текущей реализации. В конце показывай status/diff и предлагай commit/push лишь когда это уместно.

@@ -9,6 +9,13 @@ final class MacSessionContainer {
     private var lifecycle: MacLifecycle?
     private var startup: Task<Void, Never>?
     private var snapshots: ScopedSnapshotStorage?
+    lazy var routes = RouteDayRepository(session: { [coordinator] in coordinator.session },
+                                         context: { [coordinator] in coordinator.context },
+                                         storage: { [weak self] in
+                                             guard let self else { throw RouteRepositoryError.staleSession }
+                                             return try self.snapshotStorage()
+                                         }, service: { [config] in RouteDayService(config: config, authToken: $0.token) },
+                                         authFailure: { [coordinator] in coordinator.invalidateSession(message: "Сессия истекла. Войдите снова.") })
 
     init(config: AppConfig = AppConfig()) {
         self.config = config

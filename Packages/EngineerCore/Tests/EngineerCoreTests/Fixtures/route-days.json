@@ -1,0 +1,108 @@
+{
+  "days": {
+    "2026-10-08|ARM": {
+      "date": "2026-10-08",
+      "workType": "ARM",
+      "distanceKm": 23,
+      "periodStartOdometer": 12000,
+      "sent": true,
+      "stops": [
+        {
+          "id": "server-0",
+          "address": "Синтетический склад",
+          "org": "",
+          "tid": "",
+          "reason": "Подготовка оборудования",
+          "status": "Выполнена",
+          "rejectReason": "",
+          "requestNumber": "",
+          "coordinateOverride": null
+        },
+        {
+          "id": "server-1",
+          "address": "Тестовая улица, 1",
+          "org": "Тест",
+          "tid": "00123",
+          "reason": "Обслуживание",
+          "status": "Отказ",
+          "rejectReason": "Нет доступа",
+          "requestNumber": "REQ0001",
+          "coordinateOverride": {
+            "latitude": 55.75,
+            "longitude": 37.61
+          }
+        },
+        {
+          "id": "server-2",
+          "address": "Синтетический склад",
+          "org": "",
+          "tid": "",
+          "reason": "Сдача оборудования",
+          "status": "Выполнена",
+          "rejectReason": "",
+          "requestNumber": "",
+          "coordinateOverride": null
+        }
+      ],
+      "reportedDistanceKm": 23.5,
+      "route": "Склад → Тестовая улица → Склад",
+      "request_numbers": "REQ0001",
+      "fuel_date": "2026-10-08",
+      "fuel_liters": 10.5,
+      "fuel_cost_rub": 600
+    }
+  },
+  "records": [
+    {
+      "date": "2026-10-08",
+      "workType": "ARM",
+      "distanceKm": 23,
+      "periodStartOdometer": 12000,
+      "sent": true,
+      "stops": [
+        {
+          "id": "server-0",
+          "address": "Синтетический склад",
+          "org": "",
+          "tid": "",
+          "reason": "Подготовка оборудования",
+          "status": "Выполнена",
+          "rejectReason": "",
+          "requestNumber": "",
+          "coordinateOverride": null
+        },
+        {
+          "id": "server-1",
+          "address": "Тестовая улица, 1",
+          "org": "Тест",
+          "tid": "00123",
+          "reason": "Обслуживание",
+          "status": "Отказ",
+          "rejectReason": "Нет доступа",
+          "requestNumber": "REQ0001",
+          "coordinateOverride": {
+            "latitude": 55.75,
+            "longitude": 37.61
+          }
+        },
+        {
+          "id": "server-2",
+          "address": "Синтетический склад",
+          "org": "",
+          "tid": "",
+          "reason": "Сдача оборудования",
+          "status": "Выполнена",
+          "rejectReason": "",
+          "requestNumber": "",
+          "coordinateOverride": null
+        }
+      ],
+      "reportedDistanceKm": 23.5,
+      "route": "Склад → Тестовая улица → Склад",
+      "request_numbers": "REQ0001",
+      "fuel_date": "2026-10-08",
+      "fuel_liters": 10.5,
+      "fuel_cost_rub": 600
+    }
+  ]
+}

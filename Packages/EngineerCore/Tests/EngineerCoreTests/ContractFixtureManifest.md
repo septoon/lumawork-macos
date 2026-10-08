@@ -42,3 +42,15 @@ Read-only source fingerprints:
 - `LumaWork/LumaWork/SimpleOneRequestsFeature/SimpleOneRequestsService+Network.swift`: SHA-256 `fecc5f7fccfedf14b78c44093ee5aa1a7c1aa645f23f0a864f8f5cffd2a8138b`
 - `LumaWork/LumaWork/SimpleOneRequestsFeature/SimpleOneRequestsService+Mapping.swift`: SHA-256 `133d085f1691bb3cc11ba37c34c0936af3bd9187f8430b6bd85776e96ec9d67b`
 - `LumaWork/LumaWork/SimpleOneRequestsFeature/SimpleOneRequestsModels.swift`: SHA-256 `8b661dc529ad57e8fe836aa25f20f20911f52b18e1d7c7a6133d56ab307a4449`
+
+Live synthetic probe 08.10.2026: unauthenticated GET auth/login=405, user/me=401; one nonexistent test login POST=500 with `ERROR/errors.message=Wrong username or password`. No user credentials were used; these probes are outside unit tests. Added golden HTTP500 auth error coverage plus normalization parity fixture. Mac maps the known error to invalidCredentials, retains status/details for unrelated500, and logs only method/path/status. Real user login remains unverified.
+
+## Route domain — synthetic barrier 08.10.2026
+
+`route-days.json` and `route-send-arm.json`: day/type query, ordered stop fields, Russian statuses, nullable overrides/mileage, server IDs, archive summary/fuel aliases. All addresses/IDs are synthetic. Tests use URLProtocol only. Source references (read-only):
+
+- `LumaWork/LumaWork/HomeFeature/RouteDayService.swift` SHA-256 `63ae7669e7d80c06e13e27a088320e7b1a0674750872c73125446321a8ace69e`
+- `LumaWork/LumaWork/AppModels.swift` SHA-256 `542a10f46584de74374ad0ac29426bc032e8920e5fe20b487f27a95075050401`
+- `LumaWork/LumaWork/HomeFeature/RouteLocalStorage.swift` SHA-256 `d2c548a24512adaef964e957cf3eea3d9ac90f49eda6718f9604adce7d14dcbf`
+- `deploy/lumawork-api/backend/src/v2Writes.ts` SHA-256 `d3466df0975d1b91492ffcb948702e33402c1064b7a303b9b33344a598f67eae`
+- `deploy/lumawork-api/backend/src/server.ts` SHA-256 `24e8b212b9aac8aa155702b6f646da814fa6e78c428667b0e4d24446c039ffc1`

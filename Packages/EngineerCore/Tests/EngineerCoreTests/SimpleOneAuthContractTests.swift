@@ -51,6 +51,37 @@ final class SimpleOneAuthContractTests: XCTestCase {
         }
     }
 
+    func testLoginHTTP500CredentialEnvelopeShowsCredentialFailure() async throws {
+        let session = FixtureURLProtocol.install { request in
+            XCTAssertEqual(request.url?.path, "/v1/auth/login")
+            return .init(status: 500, data: Data(#"{"status":"ERROR","errors":[{"message":"Wrong username or password"}]}"#.utf8))
+        }
+        defer { session.invalidateAndCancel() }
+        let api = SimpleOneAuthAPI(config: AppConfig(simpleOneAPIOrigin: "https://so.example.invalid/v1"), session: session)
+        do {
+            _ = try await api.login(username: "synthetic-login", password: "synthetic-password")
+            XCTFail("Failed login accepted")
+        } catch let error as SimpleOneServiceError {
+            guard case .invalidCredentials = error else { return XCTFail("Server credential refusal hidden: \(error)") }
+        }
+    }
+
+    func testUnknownHTTP500EnvelopeKeepsHTTPStatusAndServerExplanation() async throws {
+        let session = FixtureURLProtocol.install { _ in
+            .init(status: 500, data: Data(#"{"status":"ERROR","errors":[{"message":"Synthetic backend failure"}]}"#.utf8))
+        }
+        defer { session.invalidateAndCancel() }
+        let api = SimpleOneAuthAPI(config: AppConfig(simpleOneAPIOrigin: "https://so.example.invalid/v1"), session: session)
+        do {
+            _ = try await api.login(username: "synthetic-login", password: "synthetic-password")
+            XCTFail("Failed login accepted")
+        } catch let error as SimpleOneServiceError {
+            guard case .server(let message) = error else { return XCTFail("Unrelated error treated as credentials") }
+            XCTAssertTrue(message.contains("HTTP 500"))
+            XCTAssertTrue(message.contains("Synthetic backend failure"))
+        }
+    }
+
     func testMissingIdentityAndEmptyAuthKeyFail() async throws {
         let session = FixtureURLProtocol.install { _ in .init(status: 200, data: Data(#"{"status":"OK","data":{"auth_key":""}}"#.utf8)) }
         defer { session.invalidateAndCancel() }

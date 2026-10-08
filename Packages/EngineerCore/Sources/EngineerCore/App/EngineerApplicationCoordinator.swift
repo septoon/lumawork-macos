@@ -168,6 +168,7 @@ public final class EngineerApplicationCoordinator {
     public func loginSimpleOne(username: String, password: String) async -> Bool {
         guard appConnection == .online, session != nil, soOperation == nil else { return false }
         let username = username.trimmingCharacters(in: .whitespacesAndNewlines)
+        let password = password.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !username.isEmpty, !password.isEmpty else {
             simpleOneError = "Введите логин и пароль SimpleOne."; return false
         }
@@ -275,7 +276,7 @@ public final class EngineerApplicationCoordinator {
     private static func isSOUnauthorized(_ error: Error) -> Bool {
         guard let error = error as? SimpleOneServiceError else { return false }
         switch error {
-        case .unauthorized, .forbidden: return true
+        case .unauthorized, .invalidCredentials, .forbidden: return true
         default: return false
         }
     }

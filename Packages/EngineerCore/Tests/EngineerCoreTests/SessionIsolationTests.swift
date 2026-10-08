@@ -171,6 +171,26 @@ final class SessionIsolationTests: XCTestCase {
         XCTAssertEqual(coordinator.appConnection, .online)
     }
 
+    func testSOLoginNormalizesPasswordLikeIOSBeforeTransport() async {
+        let api = TestAppAuth(); api.current = userA
+        let transport = FixtureURLProtocol.install { request in
+            if request.url?.path == "/v1/auth/login" {
+                let body = try JSONSerialization.jsonObject(with: FixtureURLProtocol.bodyData(of: request)) as? [String: String]
+                XCTAssertEqual(body?["username"], "synthetic-login")
+                XCTAssertEqual(body?["password"], "synthetic-password")
+                return .init(status: 200, data: Data(#"{"status":"OK","data":{"auth_key":"synthetic-key"}}"#.utf8))
+            }
+            return .init(status: 200, data: Data(#"{"status":"OK","data":{"sys_id":"SO-A","username":"synthetic-login"}}"#.utf8))
+        }
+        defer { transport.invalidateAndCancel() }
+        let so = SimpleOneAuthAPI(config: AppConfig(simpleOneAPIOrigin: "https://so.example.invalid/v1"), session: transport)
+        let coordinator = EngineerApplicationCoordinator(appAPI: api, simpleOneAPI: so,
+                                                       credentials: TestCredentials(AppSession(token: "token-A", user: userA)))
+        await coordinator.restore()
+        let result = await coordinator.loginSimpleOne(username: " synthetic-login \n", password: " synthetic-password \n")
+        XCTAssertTrue(result)
+    }
+
     func testWakeRefreshesAreSingleFlight() async {
         let api = TestAppAuth(); api.current = userA
         let vault = TestCredentials(AppSession(token: "token-A", user: userA))

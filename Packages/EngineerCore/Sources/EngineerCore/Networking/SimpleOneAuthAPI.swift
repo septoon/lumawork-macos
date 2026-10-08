@@ -50,37 +50,59 @@ public struct SimpleOneAuthAPI: SimpleOneAuthenticating {
             request.httpBody = try JSONSerialization.data(withJSONObject: body)
             request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         }
-        let (data, response) = try await session.data(for: request)
+        // Auth diagnostics contain only method/path/status, never login, password or cookie.
+        NetworkDiagnostics.logRequest(request, body: nil)
+        let data: Data
+        let response: URLResponse
+        do { (data, response) = try await session.data(for: request) }
+        catch {
+            NetworkDiagnostics.logError(url: request.url ?? baseURL, method: method, error: error)
+            throw error
+        }
         guard let http = response as? HTTPURLResponse else { throw SimpleOneServiceError.invalidResponse }
-        guard http.statusCode != 401 else { throw SimpleOneServiceError.unauthorized }
+        NetworkDiagnostics.logResponse(url: request.url ?? baseURL, statusCode: http.statusCode, data: data)
+        let json = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any]
+        let message = json.flatMap(Self.serverMessage)
+        let isLogin = path == "auth/login"
+        guard http.statusCode != 401 else {
+            throw isLogin ? SimpleOneServiceError.invalidCredentials : SimpleOneServiceError.unauthorized
+        }
         guard http.statusCode != 403 else { throw SimpleOneServiceError.forbidden }
+        // This upstream reports bad login credentials as HTTP500 + an ERROR envelope.
+        if let message, Self.isCredentialRefusal(message) {
+            throw isLogin ? SimpleOneServiceError.invalidCredentials : SimpleOneServiceError.unauthorized
+        }
         guard (200..<300).contains(http.statusCode) else {
-            throw SimpleOneServiceError.server("SimpleOne вернул HTTP \(http.statusCode).")
+            let explanation = message.map { " \($0)" } ?? ""
+            throw SimpleOneServiceError.server("SimpleOne вернул HTTP \(http.statusCode)." + explanation)
         }
-        guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
-            throw SimpleOneServiceError.invalidResponse
-        }
-        if json["status"] as? String != "OK" {
-            if let errors = json["errors"] as? [[String: Any]],
-               let message = errors.compactMap({ $0["message"] as? String }).first(where: { !$0.isEmpty }) {
-                if message.localizedCaseInsensitiveContains("credentials") { throw SimpleOneServiceError.unauthorized }
-                throw SimpleOneServiceError.server(message)
-            }
-            for key in ["message", "error"] {
-                if let message = json[key] as? String, !message.isEmpty { throw SimpleOneServiceError.server(message) }
-            }
-        }
+        guard let json else { throw SimpleOneServiceError.invalidResponse }
+        if let message { throw SimpleOneServiceError.server(message) }
         return json
+    }
+    private static func serverMessage(_ response: [String: Any]) -> String? {
+        if response["status"] as? String == "OK" { return nil }
+        if let errors = response["errors"] as? [[String: Any]],
+           let message = errors.compactMap({ $0["message"] as? String }).first(where: { !$0.isEmpty }) { return message }
+        for key in ["message", "error"] {
+            if let message = response[key] as? String, !message.isEmpty { return message }
+        }
+        return nil
+    }
+
+    private static func isCredentialRefusal(_ message: String) -> Bool {
+        message.localizedCaseInsensitiveContains("credentials") || message.localizedCaseInsensitiveContains("wrong username or password")
     }
 }
 
 public enum SimpleOneServiceError: LocalizedError {
-    case missingCredentials, unauthorized, forbidden, invalidResponse, invalidURL
+    case missingCredentials, unauthorized, invalidCredentials, forbidden, invalidResponse, invalidURL
     case server(String)
     public var errorDescription: String? {
         switch self {
         case .missingCredentials: "Войдите в SimpleOne, чтобы загрузить заявки."
         case .unauthorized: "Сессия SimpleOne истекла. Войдите снова."
+        case .invalidCredentials: "Неверный логин или пароль SimpleOne."
         case .forbidden: "SimpleOne вернул HTTP 403."
         case .invalidResponse: "SimpleOne вернул неожиданный ответ."
         case .invalidURL: "Не удалось собрать URL запроса SimpleOne."
