@@ -2,6 +2,19 @@ import XCTest
 @testable import EngineerCore
 
 @MainActor
+private final class RouteWriteGate {
+    var holdNext = false
+    var suspended: CheckedContinuation<Data, Never>?
+    func key() async -> Data {
+        if holdNext {
+            holdNext = false
+            return await withCheckedContinuation { suspended = $0 }
+        }
+        return Data(repeating: 9, count: 32)
+    }
+}
+
+@MainActor
 private final class RouteServerFixture: RouteDayServing {
     var remote: RouteDayRecord? = fixtureRoute()
     var fetchCount = 0
@@ -179,6 +192,29 @@ final class RouteRepositoryTests: XCTestCase {
         do { try await lateArchive.value; XCTFail("Stale archive accepted") } catch { }
         XCTAssertEqual(repo.snapshot(for: changed.key)?.remote?.distanceKm, 80)
         XCTAssertEqual(repo.snapshot(for: otherKey)?.connection, .online)
+    }
+    func testGetWaitingForPersistenceDoesNotReturnStaleRecordAfterSend() async throws {
+        let server = RouteServerFixture()
+        let gate = RouteWriteGate()
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let storage = ScopedSnapshotStorage(root: root, keyProvider: { _ in await gate.key() })
+        let repo = RouteDayRepository(session: { self.session }, context: { self.context }, storage: { storage }, service: { _ in server })
+        _ = try await repo.load(fixtureRoute().key)
+        var changed = fixtureRoute(); changed.distanceKm = 80
+        _ = try await repo.saveLocal(changed, base: fixtureRoute(), replacing: nil)
+        server.holdSend = true
+        let sending = Task { try await repo.send(changed, base: fixtureRoute()) }
+        while server.sendSuspended == nil { await Task.yield() }
+        gate.holdNext = true
+        let loading = Task { try await repo.load(changed.key, force: true) }
+        while gate.suspended == nil { await Task.yield() }
+        server.sendSuspended?.resume(); server.sendSuspended = nil
+        while repo.snapshot(for: changed.key)?.remote?.distanceKm != 80 { await Task.yield() }
+        gate.suspended?.resume(returning: Data(repeating: 9, count: 32)); gate.suspended = nil
+        _ = try await sending.value
+        do { _ = try await loading.value; XCTFail("Stale record returned to window after persist") } catch { }
+        XCTAssertEqual(repo.snapshot(for: changed.key)?.remote?.distanceKm, 80)
     }
     func testOfflineSendIsDurableAndReadbackRetryDoesNotDuplicateWrite() async throws {
         let server = RouteServerFixture()

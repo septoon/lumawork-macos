@@ -57,6 +57,7 @@ struct MacWorkspaceView: View {
                 Group {
                     if visibleSection == .home {
                         MacHomeScreen(model: route, repository: container.routes, coordinator: coordinator,
+                                      mapsRouteURL: container.config.mapsRouteURL,
                                       changeDate: { date in requestRouteDay(date: date, workType: route.workType) },
                                       changeWorkType: { type in requestRouteDay(date: route.selectedDate, workType: type) },
                                       openArchivedDay: { record in requestRouteDay(date: MacRouteDate.date(record.date) ?? Date(), workType: record.workType) })

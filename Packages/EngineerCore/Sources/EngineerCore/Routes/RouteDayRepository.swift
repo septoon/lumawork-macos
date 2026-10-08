@@ -153,6 +153,7 @@ public final class RouteDayRepository {
                 self.vault.remote[key.storageKey] = remote
                 self.loadedKeys.insert(key.storageKey); self.connections[key.storageKey] = .online; self.revision &+= 1
                 try await self.persist(context)
+                guard generation == self.dayGenerations[key, default: 0] else { throw CancellationError() }
                 return remote
             } catch {
                 guard self.boundContext == context, !AppErrorClassification.isCancellation(error) else { throw error }

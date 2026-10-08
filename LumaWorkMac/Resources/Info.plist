@@ -19,5 +19,6 @@
     <key>SIMPLEONE_WEB_URL</key><string>https://sd.servionica.ru</string>
     <key>WIKI_API_URL</key><string>https://wiki.lumastack.ru</string>
     <key>APP_SITE_URL</key><string>https://app.lumastack.ru</string>
+    <key>MAPS_ROUTE_URL</key><string>https://yandex.ru/maps/</string>
 </dict>
 </plist>

@@ -52,3 +52,6 @@ Secrets*.xcconfig
 **/Screenshots/
 Снимок экрана*.png
 Screenshot*.png
+
+# Project notes and instructions stay local
+*.[mM][dD]
