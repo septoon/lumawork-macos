@@ -37,6 +37,9 @@ struct MacHomeScreen: View {
                 openArchivedDay(record)
             }
         }
+        .sheet(isPresented: $presentation.isMapPresented) {
+            if let draft = model.draft { MacRouteMapView(model: model, draft: draft, repository: repository, coordinator: coordinator) }
+        }
         .sheet(isPresented: $presentation.isRemotePresented) {
             if let draft = model.draft, let remote = draft.remote {
                 MacRemoteRouteView(record: remote) { Task { await model.useRemote(repository: repository) } }
@@ -63,6 +66,7 @@ struct MacHomeScreen: View {
                 }.frame(width: 130)
                 if model.isLoading { ProgressView().controlSize(.small).accessibilityLabel("Загрузка маршрута") }
                 Spacer()
+                Button("Карта и пробег") { model.isMapPresented = true }.disabled(model.draft == nil || model.isBusy)
                 Button("Яндекс Карты") {
                     guard let url = mapURL else { return }
                     openURL(url) { accepted in
@@ -77,7 +81,8 @@ struct MacHomeScreen: View {
     }
     private var mapURL: URL? {
         guard let record = model.draft?.record else { return nil }
-        return RouteMapLinks.webURL(baseURL: mapsRouteURL, addresses: record.stops.map(\.address), coordinateOverrides: record.stops.map(\.coordinateOverride))
+        let plan = repository.mapPlan(for: record)
+        return RouteMapLinks.webURL(baseURL: mapsRouteURL, addresses: plan.addresses, coordinateOverrides: plan.coordinateOverrides)
     }
     private func footer(_ draft: RouteDraftController) -> some View {
         VStack(spacing: 0) {

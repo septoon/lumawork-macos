@@ -40,6 +40,14 @@ public final class RouteDraftController {
         record = value; savedRecord = value; remote = value; base = value; savedRevision = nil
     }
     public func setDistance(_ value: Int?) { record.distanceKm = value; record.sent = false }
+    @discardableResult public func applyMapDistance(_ snapshot: RouteMapSnapshot, source: RouteDayRecord, plan: RouteMapPlan) -> Bool {
+        guard source.key == record.key, source.stops.count == record.stops.count,
+              zip(source.stops, record.stops).allSatisfy({ $0.id == $1.id && $0.address == $1.address }),
+              plan.addresses == RouteMapPlan(stops: record.stops).addresses,
+              record.stops.indices.allSatisfy({ i in record.stops[i].coordinateOverride == nil || record.stops[i].coordinateOverride == plan.coordinateOverrides[i] }),
+              snapshot.matches(plan), snapshot.canApplyDistance else { return false }
+        setDistance(snapshot.distanceKm); return true
+    }
     public func setOdometer(_ value: Int?) { record.periodStartOdometer = value; record.sent = false }
     public func updateStop(_ id: String, address: String? = nil, org: String? = nil, tid: String? = nil, reason: String? = nil, status: RouteStopStatus? = nil, declineReason: String? = nil, requestNumber: String? = nil, coordinate: AppleRouteCoordinate?? = nil) {
         guard let index = record.stops.firstIndex(where: { $0.id == id }) else { return }

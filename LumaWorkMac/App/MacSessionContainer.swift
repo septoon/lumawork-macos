@@ -15,7 +15,8 @@ final class MacSessionContainer {
                                              guard let self else { throw RouteRepositoryError.staleSession }
                                              return try self.snapshotStorage()
                                          }, service: { [config] in RouteDayService(config: config, authToken: $0.token) },
-                                         authFailure: { [coordinator] in coordinator.invalidateSession(message: "Сессия истекла. Войдите снова.") })
+                                         authFailure: { [coordinator] in coordinator.invalidateSession(message: "Сессия истекла. Войдите снова.") },
+                                         mapService: { RouteMapCalculator(transport: MacRouteMapTransport()) })
 
     init(config: AppConfig = AppConfig()) {
         self.config = config

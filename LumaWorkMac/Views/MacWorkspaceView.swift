@@ -103,11 +103,11 @@ struct MacWorkspaceView: View {
 
     private var routeActions: MacRouteActions {
         MacRouteActions(canSave: route.draft?.isDirty == true && !route.isBusy,
-                        canSend: route.draft != nil && route.draft?.validationMessage == nil && !route.isBusy && !route.isLoading,
+                        canSend: route.draft != nil && route.draft?.validationMessage == nil && !route.isBusy && !route.isLoading && !route.isMapPresented,
                         save: { Task { await route.saveShowingError(repository: container.routes) } },
                         send: { route.isSendConfirmationPresented = true },
                         refresh: { Task { await route.load(repository: container.routes, coordinator: coordinator, force: true) } },
-                        archive: { route.isArchivePresented = true })
+                        archive: { route.isArchivePresented = true }, map: { route.isMapPresented = true })
     }
     private func requestSection(_ section: EngineerSection) {
         guard section != workspace.selectedSection else { return }

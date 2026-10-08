@@ -32,13 +32,19 @@ public final class RouteDayRepository {
     private struct Vault: Codable {
         var remote: [String: RouteDayRecord] = [:]
         var drafts: [String: RouteSavedDraft] = [:]
+        var maps: [String: RouteMapSnapshot]?
+        var confirmedCoordinates: [String: AppleRouteCoordinate]?
     }
     private struct Flight { let id: UUID; let task: Task<RouteDayRecord?, Error> }
+    private struct MapFlight { let id: UUID; let task: Task<RouteMapSnapshot, Error> }
     private let sessionProvider: () -> AppSession?
     private let contextProvider: () -> SessionContext?
     private let storageProvider: () throws -> ScopedSnapshotStorage
     private let serviceFactory: (AppSession) -> any RouteDayServing
     private let authFailure: () -> Void
+    private let mapServiceFactory: (() -> any RouteMapServing)?
+    private var mapService: (any RouteMapServing)?
+    private var mapFlights: [RouteMapPlan: MapFlight] = [:]
     private var boundContext: SessionContext?
     private var vault = Vault()
     private var loadedKeys = Set<String>()
@@ -60,12 +66,14 @@ public final class RouteDayRepository {
     public private(set) var officeAddresses: [String] = []
 
     public init(session: @escaping () -> AppSession?, context: @escaping () -> SessionContext?, storage: @escaping () throws -> ScopedSnapshotStorage,
-                service: @escaping (AppSession) -> any RouteDayServing, authFailure: @escaping () -> Void = {}) {
+                service: @escaping (AppSession) -> any RouteDayServing, authFailure: @escaping () -> Void = {}, mapService: (() -> any RouteMapServing)? = nil) {
         sessionProvider = session; contextProvider = context; storageProvider = storage; serviceFactory = service; self.authFailure = authFailure
+        mapServiceFactory = mapService
     }
     public func synchronizeSession() {
         guard boundContext != contextProvider() else { return }
         flights.values.forEach { $0.task.cancel() }; flights = [:]
+        mapFlights.values.forEach { $0.task.cancel() }; mapFlights = [:]; mapService = nil
         hydration?.cancel(); hydration = nil; persistence?.cancel(); persistence = nil; persistenceID = nil
         archiveFlight?.cancel(); archiveFlight = nil; isLoadingArchive = false
         vault = Vault(); loadedKeys = []; connections = [:]; sending = []; hydrated = false
@@ -269,10 +277,65 @@ public final class RouteDayRepository {
         let (context, service) = try capture()
         let addresses = try await service.fetchOfficeAddresses(); try check(context); officeAddresses = addresses
     }
+    public func mapPlan(for record: RouteDayRecord) -> RouteMapPlan {
+        RouteMapPlan(stops: record.stops, remembered: active ? vault.confirmedCoordinates ?? [:] : [:])
+    }
+    public func cachedMap(for plan: RouteMapPlan) -> RouteMapSnapshot? {
+        guard active, let value = vault.maps?[plan.storageKey], value.matches(plan), value.hasGeometry else { return nil }
+        return value
+    }
+    public func prepareMap(for plan: RouteMapPlan) async throws -> RouteMapSnapshot? {
+        let (context, _) = try capture(); try await hydrate(context); try check(context)
+        return cachedMap(for: plan)
+    }
+    public func calculateMap(for plan: RouteMapPlan, force: Bool = false) async throws -> RouteMapSnapshot {
+        let (context, _) = try capture(); try await hydrate(context); try check(context)
+        if !force, let cached = cachedMap(for: plan) { return cached }
+        if let flight = mapFlights[plan] { return try await flight.task.value }
+        if mapService == nil { mapService = mapServiceFactory?() }
+        guard let service = mapService else { throw AppServiceError.message("Расчёт карты не настроен.") }
+        let id = UUID()
+        let task = Task<RouteMapSnapshot, Error> {
+            let result = try await service.route(for: plan, force: force)
+            try self.check(context)
+            guard result.matches(plan) else { throw RouteMapError.directionsUnavailable }
+            let previous = self.vault.maps?[plan.storageKey]
+            if self.vault.maps == nil { self.vault.maps = [:] }
+            self.vault.maps?[plan.storageKey] = result; self.revision &+= 1
+            do { try await self.persist(context) }
+            catch {
+                if self.boundContext == context, self.vault.maps?[plan.storageKey] == result {
+                    self.vault.maps?[plan.storageKey] = previous; self.revision &+= 1
+                }
+                throw error
+            }
+            try self.check(context)
+            return result
+        }
+        mapFlights[plan] = MapFlight(id: id, task: task)
+        defer { if mapFlights[plan]?.id == id { mapFlights[plan] = nil } }
+        return try await task.value
+    }
+    public func rememberMapCoordinate(_ coordinate: AppleRouteCoordinate?, for address: String) async throws {
+        let (context, _) = try capture(); try await hydrate(context); try check(context)
+        guard !address.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty, coordinate?.isValid != false else { throw RouteMapError.incompleteRoute }
+        let key = address.routeCoordinateKey
+        let previous = vault.confirmedCoordinates?[key]
+        if vault.confirmedCoordinates == nil { vault.confirmedCoordinates = [:] }
+        vault.confirmedCoordinates?[key] = coordinate; revision &+= 1
+        do { try await persist(context) }
+        catch {
+            if boundContext == context, vault.confirmedCoordinates?[key] == coordinate {
+                vault.confirmedCoordinates?[key] = previous; revision &+= 1
+            }
+            throw error
+        }
+    }
     private func handle(_ error: Error) {
         if case RouteDayServiceError.unauthorized = error {
             requiresAuthentication = true; vault = Vault(); loadedKeys = []; connections = [:]
             hydration?.cancel(); persistence?.cancel(); flights.values.forEach { $0.task.cancel() }; archiveFlight?.cancel()
+            mapFlights.values.forEach { $0.task.cancel() }; mapService = nil
             authFailure()
         }
     }

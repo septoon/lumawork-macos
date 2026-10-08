@@ -1,0 +1,58 @@
+{
+  "addresses": [
+    "Алушта, Первая, 1",
+    "Алушта, Вторая, 2",
+    "Алушта, Первая, 1"
+  ],
+  "distanceKm": 3,
+  "stopCoordinates": [
+    {
+      "latitude": 55.0,
+      "longitude": 37.0
+    },
+    {
+      "latitude": 56.0,
+      "longitude": 37.0
+    },
+    {
+      "latitude": 55.0,
+      "longitude": 37.0
+    }
+  ],
+  "legs": [
+    {
+      "distanceMeters": 1001,
+      "coordinates": [
+        {
+          "latitude": 55.0,
+          "longitude": 37.0
+        },
+        {
+          "latitude": 56.0,
+          "longitude": 37.0
+        }
+      ]
+    },
+    {
+      "distanceMeters": 1000,
+      "coordinates": [
+        {
+          "latitude": 56.0,
+          "longitude": 37.0
+        },
+        {
+          "latitude": 55.0,
+          "longitude": 37.0
+        }
+      ]
+    }
+  ],
+  "coordinateOverrides": [
+    null,
+    null,
+    null
+  ],
+  "unverifiedStopIndices": [],
+  "routingIncomplete": false,
+  "geocodingVersion": 4
+}

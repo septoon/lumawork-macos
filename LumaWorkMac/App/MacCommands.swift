@@ -17,6 +17,7 @@ struct MacRouteActions {
     let send: () -> Void
     let refresh: () -> Void
     let archive: () -> Void
+    let map: () -> Void
 }
 private struct MacRouteActionsKey: FocusedValueKey { typealias Value = MacRouteActions }
 
@@ -53,6 +54,7 @@ struct MacCommands: Commands {
             Divider()
             Button("Обновить маршрут") { routeActions?.refresh() }.keyboardShortcut("r", modifiers: [.command, .option]).disabled(routeActions == nil)
             Button("Архив маршрутов…") { routeActions?.archive() }.disabled(routeActions == nil)
+            Button("Карта и пробег…") { routeActions?.map() }.keyboardShortcut("m", modifiers: [.command, .option]).disabled(routeActions == nil)
         }
         CommandMenu("Разделы") {
             ForEach(workspaceActions?.availableSections ?? []) { section in

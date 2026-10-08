@@ -13,6 +13,7 @@ final class MacRouteWorkspace {
     var error: String?
     var notice: String?
     var isArchivePresented = false
+    var isMapPresented = false
     var isSendConfirmationPresented = false
     var isRemotePresented = false
     var isLocalReloadConfirmationPresented = false
