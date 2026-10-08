@@ -7,7 +7,7 @@ let package = Package(
     products: [.library(name: "EngineerCore", targets: ["EngineerCore"])],
     targets: [
         .target(name: "EngineerCore"),
-        .testTarget(name: "EngineerCoreTests", dependencies: ["EngineerCore"], exclude: ["ContractFixtureManifest.md"], resources: [.copy("Fixtures")])
+        .testTarget(name: "EngineerCoreTests", dependencies: ["EngineerCore"], resources: [.copy("Fixtures")])
     ],
     swiftLanguageModes: [.v5]
 )
