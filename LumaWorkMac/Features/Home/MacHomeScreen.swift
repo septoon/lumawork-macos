@@ -6,14 +6,15 @@ struct MacHomeScreen: View {
     let repository: RouteDayRepository
     let coordinator: EngineerApplicationCoordinator
     let mapsRouteURL: String?
+    let openGsm: () -> Void
     @Environment(\.openURL) private var openURL
     let changeDate: (Date) -> Void
     let changeWorkType: (RouteWorkType) -> Void
     let openArchivedDay: (RouteDayRecord) -> Void
     @Bindable private var presentation: MacRouteWorkspace
-    init(model: MacRouteWorkspace, repository: RouteDayRepository, coordinator: EngineerApplicationCoordinator, mapsRouteURL: String?, changeDate: @escaping (Date) -> Void, changeWorkType: @escaping (RouteWorkType) -> Void, openArchivedDay: @escaping (RouteDayRecord) -> Void) {
+    init(model: MacRouteWorkspace, repository: RouteDayRepository, coordinator: EngineerApplicationCoordinator, mapsRouteURL: String?, openGsm: @escaping () -> Void, changeDate: @escaping (Date) -> Void, changeWorkType: @escaping (RouteWorkType) -> Void, openArchivedDay: @escaping (RouteDayRecord) -> Void) {
         self.model = model; self.repository = repository; self.coordinator = coordinator
-        self.mapsRouteURL = mapsRouteURL
+        self.mapsRouteURL = mapsRouteURL; self.openGsm = openGsm
         self.changeDate = changeDate; self.changeWorkType = changeWorkType; self.openArchivedDay = openArchivedDay; presentation = model
     }
     var body: some View {
@@ -74,6 +75,7 @@ struct MacHomeScreen: View {
                     }
                 }.disabled(mapURL == nil || model.isBusy)
                     .help(mapURL == nil ? "Для маршрута нужны минимум два адреса и настроенный адрес карт." : "Открыть текущий маршрут в Яндекс Картах")
+                Button("ГСМ", action: openGsm).disabled(model.isBusy)
                 Button("Архив") { model.isArchivePresented = true }
                 Button { Task { await model.load(repository: repository, coordinator: coordinator, force: true) } } label: { Image(systemName: "arrow.clockwise") }
                     .help("Обновить маршрут").disabled(model.isLoading || model.isBusy)

@@ -1,0 +1,170 @@
+{
+  "fill" : {
+    "linear-gradient" : [
+      "srgb:0.00000,0.99144,1.00000,1.00000",
+      "display-p3:0.91765,0.87451,0.78824,1.00000"
+    ],
+    "orientation" : {
+      "start" : {
+        "x" : 0.5,
+        "y" : 0
+      },
+      "stop" : {
+        "x" : 0.5,
+        "y" : 0.7
+      }
+    }
+  },
+  "groups" : [
+    {
+      "layers" : [
+        {
+          "hidden" : true,
+          "image-name" : "04_helmet 2.png",
+          "name" : "04_helmet 2",
+          "position" : {
+            "scale" : 0.5,
+            "translation-in-points" : [
+              295.7275278344232,
+              345.1443921124263
+            ]
+          }
+        }
+      ],
+      "shadow" : {
+        "kind" : "neutral",
+        "opacity" : 0.5
+      },
+      "translucency" : {
+        "enabled" : true,
+        "value" : 0.5
+      }
+    },
+    {
+      "layers" : [
+        {
+          "image-name" : "03_phone 2.png",
+          "name" : "03_phone 2",
+          "position" : {
+            "scale" : 0.7,
+            "translation-in-points" : [
+              -94.40279989863302,
+              31.430781866682878
+            ]
+          }
+        }
+      ],
+      "shadow" : {
+        "kind" : "neutral",
+        "opacity" : 0.5
+      },
+      "translucency" : {
+        "enabled" : true,
+        "value" : 0.5
+      }
+    },
+    {
+      "layers" : [
+        {
+          "hidden" : false,
+          "image-name" : "02_card 2.png",
+          "name" : "02_card 2",
+          "position" : {
+            "scale" : 0.6,
+            "translation-in-points" : [
+              80.49720010136696,
+              -116.6719769059211
+            ]
+          }
+        }
+      ],
+      "shadow" : {
+        "kind" : "neutral",
+        "opacity" : 0.5
+      },
+      "translucency" : {
+        "enabled" : true,
+        "value" : 0.5
+      }
+    },
+    {
+      "layers" : [
+        {
+          "hidden" : true,
+          "image-name" : "05_gear 2.png",
+          "name" : "05_gear 2",
+          "position" : {
+            "scale" : 0.2,
+            "translation-in-points" : [
+              166.59720010136698,
+              261.1541807757362
+            ]
+          }
+        }
+      ],
+      "shadow" : {
+        "kind" : "neutral",
+        "opacity" : 0.5
+      },
+      "translucency" : {
+        "enabled" : true,
+        "value" : 0.5
+      }
+    },
+    {
+      "layers" : [
+        {
+          "hidden" : true,
+          "image-name" : "01_blueprint 2.png",
+          "name" : "01_blueprint 2",
+          "position" : {
+            "scale" : 0.5,
+            "translation-in-points" : [
+              166.59720010136698,
+              227.53078186668267
+            ]
+          }
+        }
+      ],
+      "shadow" : {
+        "kind" : "neutral",
+        "opacity" : 0.5
+      },
+      "translucency" : {
+        "enabled" : true,
+        "value" : 0.5
+      }
+    },
+    {
+      "layers" : [
+        {
+          "blend-mode" : "normal",
+          "hidden" : true,
+          "image-name" : "00_background.png",
+          "name" : "00_background",
+          "position" : {
+            "scale" : 1,
+            "translation-in-points" : [
+              80.49720010136696,
+              -53.473998463118164
+            ]
+          }
+        }
+      ],
+      "shadow" : {
+        "kind" : "neutral",
+        "opacity" : 0.5
+      },
+      "translucency" : {
+        "enabled" : true,
+        "value" : 0.5
+      }
+    }
+  ],
+  "supported-platforms" : {
+    "circles" : [
+      "watchOS"
+    ],
+    "squares" : "shared"
+  }
+}

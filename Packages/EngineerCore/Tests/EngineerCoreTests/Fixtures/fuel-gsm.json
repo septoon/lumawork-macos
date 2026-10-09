@@ -1,0 +1,10 @@
+{
+  "records": [
+    {"id":"fuel-1","recordType":"FUEL","date":"2026-06-30","mileage":"100","liters":"20","fuelCost":"1520","fuelType":"АИ-95","fuelConsumptionRate":10,"source":"MANUAL","sourceImportId":null},
+    {"id":"pay-1","recordType":"ADJUSTMENT","adjustmentKind":"COMPENSATION_PAYMENT","monthKey":"2026-06","date":"2026-07-01","amount":100},
+    {"id":"debt-1","recordType":"ADJUSTMENT","adjustmentKind":"DEBT_DEDUCTION","monthKey":"2026-06","date":"2026-07-02","liters":2,"carryoverDebtRub":76}
+  ],
+  "profile": {"vehicleId":"vehicle-fixture","posProjectId":"pos-fixture","armProjectId":null,"budgetCode":"TEST","employeeFullName":"Тестовый сотрудник","employeeShortName":"Тест Т.Т.","employeeReportSignName":"Т.Т. Тест","authorizedFullName":"Тестовый представитель","authorizedShortName":"Тест П.П.","employeeJobTitle":"Инженер","employeeCompany":"Тестовая компания","employeeAddress":"Тестовый город, Тестовая, 1","employeePhone":"80000000000","driverLicenseNumber":"fixture-license","fuelCardNumber":"fixture-card","carModel":"Fixture car","licensePlate":"TEST","fuelNorm":"9.4","fuelTypes":["АИ-95","ДТ"],"fuelType":"АИ-95","defaultStartOdometer":100,"reportStartMonth":"2026-04","projectName":"Тестовый проект"},
+  "availableFuelTypes":["АИ-95","ДТ"],
+  "projects":[{"id":"pos-fixture","name":"Тестовый проект","budgetCode":"TEST"}]
+}

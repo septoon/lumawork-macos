@@ -10,6 +10,7 @@ final class MacDraftRegistry {
         let hasDirty: () -> Bool
         let save: () async throws -> Void
         let discard: () -> Void
+        var discardOnly: () -> Bool = { false }
     }
     private var entries: [UUID: Entry] = [:]
     private var isPrompting = false
@@ -21,26 +22,42 @@ final class MacDraftRegistry {
         isPrompting = true; defer { isPrompting = false }
         let candidates = id.map { entries[$0].map { [$0] } ?? [] } ?? Array(entries.values)
         for entry in candidates where entry.window != nil && entry.hasDirty() {
-            let alert = NSAlert()
-            alert.messageText = "Сохранить изменения маршрута?"
-            alert.informativeText = "Черновик будет сохранён только на этом Mac. Для отправки на сервер используйте «Отправить»."
-            alert.addButton(withTitle: "Сохранить черновик")
-            alert.addButton(withTitle: "Не сохранять")
-            alert.addButton(withTitle: "Отмена")
-            switch alert.runModal() {
+            guard await Self.resolve(entry, decision: Self.prompt, failed: { error in
+                let alert = NSAlert(); alert.messageText = "Не удалось сохранить черновик"
+                alert.informativeText = error.localizedDescription; alert.addButton(withTitle: "OK"); alert.runModal()
+            }) else { return false }
+        }
+        return true
+    }
+    static func resolve(_ entry: Entry, decision: (Bool) -> NSApplication.ModalResponse, failed: (Error) -> Void) async -> Bool {
+        while entry.hasDirty() {
+            if entry.discardOnly() {
+                guard decision(true) == .alertFirstButtonReturn else { return false }
+                entry.discard(); continue
+            }
+            switch decision(false) {
             case .alertFirstButtonReturn:
-                do { try await entry.save() }
-                catch {
-                    let failure = NSAlert(); failure.messageText = "Не удалось сохранить черновик"
-                    failure.informativeText = error.localizedDescription; failure.addButton(withTitle: "OK"); failure.runModal()
-                    return false
-                }
+                do { try await entry.save() } catch { failed(error); return false }
             case .alertSecondButtonReturn: entry.discard()
             default: return false
             }
         }
         return true
     }
+    private static func prompt(discardOnly: Bool) -> NSApplication.ModalResponse {
+        let alert = NSAlert()
+        if discardOnly {
+            alert.messageText = "Отменить изменения топлива или профиля?"
+            alert.informativeText = "Несохранённые изменения будут потеряны. Закрытие окна не отправляет данные на сервер."
+            alert.addButton(withTitle: "Не сохранять"); alert.addButton(withTitle: "Продолжить редактирование")
+        } else {
+            alert.messageText = "Сохранить изменения маршрута?"
+            alert.informativeText = "Черновик будет сохранён только на этом Mac. Для отправки на сервер используйте «Отправить»."
+            alert.addButton(withTitle: "Сохранить черновик"); alert.addButton(withTitle: "Не сохранять"); alert.addButton(withTitle: "Отмена")
+        }
+        return alert.runModal()
+    }
+
 }
 
 struct MacWindowDraftGuard: NSViewRepresentable {
@@ -48,6 +65,7 @@ struct MacWindowDraftGuard: NSViewRepresentable {
     let hasDirty: () -> Bool
     let save: () async throws -> Void
     let discard: () -> Void
+    var discardOnly: () -> Bool = { false }
     func makeCoordinator() -> Coordinator { Coordinator(id: id) }
     func makeNSView(context: Context) -> WindowReader {
         let view = WindowReader()
@@ -70,7 +88,7 @@ struct MacWindowDraftGuard: NSViewRepresentable {
         init(id: UUID) { self.id = id }
         func update(_ value: MacWindowDraftGuard) {
             callbacks = value
-            if let window { MacDraftRegistry.shared.register(id, entry: .init(window: window, hasDirty: value.hasDirty, save: value.save, discard: value.discard)) }
+            if let window { MacDraftRegistry.shared.register(id, entry: .init(window: window, hasDirty: value.hasDirty, save: value.save, discard: value.discard, discardOnly: value.discardOnly)) }
         }
         func attach(_ newWindow: NSWindow?) {
             guard let newWindow, window !== newWindow else { return }
