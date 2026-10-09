@@ -18,12 +18,21 @@ public struct SimpleOneQueryConfiguration: Sendable {
         ("SIMPLEONE_ASSIGNED_USER_DYNAMIC_ID", "Исполнитель (dynamic)"),
         ("SIMPLEONE_RESOLVED_DATE_OPTION_ID", "Опция даты выполнения")
     ]
+    public static let groupArchiveFields = [
+        (key: "SIMPLEONE_GROUP_ARCHIVE_COMPANY_LOCATION_ID", title: "Расположение компании для архива группы"),
+        (key: "SIMPLEONE_GROUP_ARCHIVE_DATE_OPTION_ID", title: "Опция даты для архива группы")
+    ]
+    public static func fields(for region: CoordinationRegion) -> [(key: String, title: String)] {
+        [("SIMPLEONE_\(region.rawValue.uppercased())_ASSIGNMENT_GROUP_ID", "Рабочая группа"),
+         ("SIMPLEONE_\(region.rawValue.uppercased())_COMPANY_LOCATION_ID", "Расположение компании")]
+    }
     private let values: [String: String]
     public init(values: [String: String]? = nil) {
         if let values { self.values = values; return }
         let local = Bundle.main.url(forResource: "SimpleOne.local", withExtension: "plist")
             .flatMap { NSDictionary(contentsOf: $0) as? [String: String] } ?? [:]
-        self.values = Dictionary(uniqueKeysWithValues: Self.fields.map { field in
+        let fields = Self.fields + Self.groupArchiveFields + CoordinationRegion.allCases.flatMap(Self.fields(for:))
+        self.values = Dictionary(uniqueKeysWithValues: fields.map { field in
             (field.key, AppConfig.resolveFirst(field.key) ?? local[field.key] ?? "")
         })
     }
@@ -47,6 +56,26 @@ public struct SimpleOneQueryConfiguration: Sendable {
         let assigned = try required("SIMPLEONE_ASSIGNED_USER_DYNAMIC_ID")
         let date = try required("SIMPLEONE_RESOLVED_DATE_OPTION_ID")
         return "((multicard_engineerDYNAMIC\(current)^ORassigned_userDYNAMIC\(assigned)^ORengineer_schedule.employeeDYNAMIC\(current))^resolved_atNOTONopt:\(date)^stateNOT INon_hold@assigned@in_progress@escalated@returned_to_work@3@6@update_received)"
+    }
+    public func condition(collection: RequestCollection, userID: String) throws -> String {
+        switch collection {
+        case .personal(let source): return try condition(scope: source == .active ? .active : .closed, userID: userID)
+        case .coordination(let region):
+            let primary = try required("SIMPLEONE_PRIMARY_ASSIGNMENT_GROUP_ID")
+            let group = try required("SIMPLEONE_\(region.rawValue.uppercased())_ASSIGNMENT_GROUP_ID")
+            let location = try required("SIMPLEONE_\(region.rawValue.uppercased())_COMPANY_LOCATION_ID")
+            return "((assignment_group=\(primary)^ORassignment_group=\(group))^related_inquiry.company_location=\(location)^client_service_idLIKEСервисные заявки БЧ^client_service_idNOTLIKEЭкспертиза. Сервисные заявки БЧ^stateNOT INcancelled@closed@escalated@completed)"
+        case .returnEquipment:
+            guard !userID.isEmpty, userID.allSatisfy({ $0.isLetter || $0.isNumber || $0 == "-" || $0 == "_" }) else { throw SimpleOneServiceError.invalidResponse }
+            return "(assigned_user=\(userID)^multicard_request_type=returnEquip^stateNOT INcancelled@closed_by_user@closed@escalated@completed)"
+        case .groupClosed:
+            let location = try required("SIMPLEONE_GROUP_ARCHIVE_COMPANY_LOCATION_ID")
+            let date = try required("SIMPLEONE_GROUP_ARCHIVE_DATE_OPTION_ID")
+            return "(company_location=\(location)^resolved_atNOTONopt:\(date)^stateNOT INon_hold@assigned@in_progress@escalated@returned_to_work@3@6@update_received)"
+        }
+    }
+    public func timeReportCondition() throws -> String {
+        "(personDYNAMIC\(try required("SIMPLEONE_CURRENT_USER_DYNAMIC_ID")))^ORDERBYDESCdate_of_work^ORDERBYDESCsys_id"
     }
 }
 

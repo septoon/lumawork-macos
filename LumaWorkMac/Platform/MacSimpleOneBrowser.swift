@@ -3,18 +3,36 @@ import WebKit
 import EngineerCore
 
 struct MacSimpleOneBrowser: View {
-    let record: SimpleOneRequestRecord
+    let recordID: String?
+    let title: String
+    let isTimeReport: Bool
     let coordinator: EngineerApplicationCoordinator
     let config: AppConfig
     @Environment(\.dismiss) private var dismiss
+    init(record: SimpleOneRequestRecord, coordinator: EngineerApplicationCoordinator, config: AppConfig) {
+        recordID = record.sysID; title = record.number; isTimeReport = false
+        self.coordinator = coordinator; self.config = config
+    }
+    init(timeReportRecordID: String?, title: String, coordinator: EngineerApplicationCoordinator, config: AppConfig) {
+        recordID = timeReportRecordID; self.title = title; isTimeReport = true
+        self.coordinator = coordinator; self.config = config
+    }
+    private var destination: URL? {
+        guard let origin = URL(string: config.simpleOneWebOrigin ?? ""), origin.scheme == "https", origin.host != nil else { return nil }
+        if let recordID {
+            guard !recordID.isEmpty, recordID.allSatisfy({ $0.isLetter || $0.isNumber || $0 == "-" || $0 == "_" }) else { return nil }
+        } else if !isTimeReport { return nil }
+        var url = origin.appendingPathComponent(isTimeReport ? "record/itsm_tchnsrv_time_report" : "record/itsm_request")
+        if let recordID { url.appendPathComponent(recordID) }
+        if isTimeReport { url.append(queryItems: [URLQueryItem(name: "form_view", value: "Внешняя система")]) }
+        return url
+    }
     var body: some View {
         VStack(spacing: 0) {
-            HStack { Text("SimpleOne · \(record.number)").font(.headline); Spacer(); Button("Закрыть") { dismiss() }.keyboardShortcut(.cancelAction) }.padding(12)
+            HStack { Text("SimpleOne · \(title)").font(.headline); Spacer(); Button("Закрыть") { dismiss() }.keyboardShortcut(.cancelAction) }.padding(12)
             Divider()
-            if let credentials = coordinator.simpleOneSession, let context = coordinator.context,
-               let origin = URL(string: config.simpleOneWebOrigin ?? ""), origin.scheme == "https", origin.host != nil,
-               !record.sysID.isEmpty, record.sysID.allSatisfy({ $0.isLetter || $0.isNumber || $0 == "-" || $0 == "_" }) {
-                MacSimpleOneWebView(url: origin.appendingPathComponent("record/itsm_request").appendingPathComponent(record.sysID),
+            if let credentials = coordinator.simpleOneSession, let context = coordinator.context, let destination {
+                MacSimpleOneWebView(url: destination,
                                     authKey: credentials.authKey, context: context, session: coordinator)
                     .id(context.epoch)
             } else { ContentUnavailableView("SimpleOne недоступен", systemImage: "globe", description: Text("Проверьте адрес сервера и вход в SimpleOne.")) }

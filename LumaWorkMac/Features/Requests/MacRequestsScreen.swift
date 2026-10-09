@@ -7,22 +7,37 @@ struct MacRequestsScreen: View {
     let coordinator: EngineerApplicationCoordinator
     let config: AppConfig
     let openAccount: () -> Void
+    var collectionOverride: RequestCollection? = nil
+    var engineerID: String? = nil
+    private var collection: RequestCollection { collectionOverride ?? .personal(workspace.scope.source) }
+    private var isClosed: Bool { collection.source == .closed }
+    private var isGroupArchive: Bool { collection == .groupClosed }
     private var query: String { workspace.search.trimmingCharacters(in: .whitespacesAndNewlines).folding(options: [.diacriticInsensitive, .caseInsensitive], locale: .current) }
+    private var types: [String] { Array(Set(workspace.prepared.map { typeKey($0.record) })).sorted() }
+    private func typeKey(_ record: SimpleOneRequestRecord) -> String { record.requestType.split(whereSeparator: \.isWhitespace).first.map(String.init)?.lowercased() ?? "" }
     private var rows: [MacRequestRow] {
         let period = Calendar(identifier: .gregorian).dateInterval(of: .month, for: workspace.month)
         return workspace.prepared.filter { row in
-            if workspace.scope == .warehouse && !row.isWarehouse { return false }
-            if workspace.scope != .closed && !workspace.status.contains(row.status) { return false }
+            if isGroupArchive, workspace.excludedTypes.contains(typeKey(row.record)) { return false }
+            if collectionOverride == nil && workspace.scope == .warehouse && !row.isWarehouse { return false }
+            if !isClosed && !workspace.status.contains(row.status) { return false }
+            if let engineerID, CoordinationPolicy.engineerKey(row.record) != engineerID { return false }
             if !query.isEmpty { return row.searchText.contains(query) }
-            guard workspace.scope == .closed, !workspace.allDates else { return true }
+            if isGroupArchive {
+                let calendar = Calendar.autoupdatingCurrent, today = calendar.startOfDay(for: Date())
+                let yesterday = calendar.date(byAdding: .day, value: -1, to: today) ?? today
+                let tomorrow = calendar.date(byAdding: .day, value: 1, to: today) ?? today
+                return row.date.map { $0 >= yesterday && $0 < tomorrow } ?? false
+            }
+            guard isClosed, !workspace.allDates else { return true }
             return row.date.map { period?.contains($0) ?? false } ?? false
         }
     }
     private var selected: SimpleOneRequestRecord? { rows.first { $0.id == workspace.selection }?.record }
-    private var refreshKey: String { "\(coordinator.context?.epoch ?? 0)|\(workspace.scope.source.rawValue)" }
-    private var listKey: String { refreshKey + "|\(repository.updatedAt(workspace.scope.source)?.timeIntervalSince1970 ?? 0)" }
+    private var refreshKey: String { "\(coordinator.context?.epoch ?? 0)|\(collection.key)" }
+    private var listKey: String { refreshKey + "|\(repository.updatedAt(collection)?.timeIntervalSince1970 ?? 0)" }
 
-    var body: some View {
+    private var content: some View {
         Group {
             if coordinator.simpleOneSession == nil {
                 ContentUnavailableView {
@@ -46,46 +61,67 @@ struct MacRequestsScreen: View {
                 }
             }
         }
-        .task(id: refreshKey) { try? await repository.load(workspace.scope.source) }
-        .task(id: listKey) {
-            let captured = coordinator.context, records = repository.records(workspace.scope.source)
-            let source = workspace.scope.source
-            let prepared = await Task.detached(priority: .userInitiated) {
-                records.map(MacRequestRow.init).sorted {
-                    if $0.sortDate != $1.sortDate { return $0.sortDate > $1.sortDate }
-                    return $0.record.number.localizedStandardCompare($1.record.number) == .orderedDescending
-                }
-            }.value
-            guard !Task.isCancelled, coordinator.context == captured, workspace.scope.source == source else { return }
-            workspace.prepared = prepared
-            reconcileSelection()
-        }
+    }
+    var body: some View {
+        listLifecycle
         .onChange(of: workspace.scope) { old, new in
             workspace.selection = nil; workspace.detail = nil; workspace.detailError = nil; workspace.isLoadingDetail = false
-            if old.source != new.source { workspace.prepared = [] }
+            if old.source != new.source, collectionOverride == nil { workspace.prepared = [] }
         }
+        .onChange(of: collection) { _, _ in workspace.clearResults() }
+        .onChange(of: engineerID) { _, _ in workspace.selection = nil; workspace.detail = nil }
         .onChange(of: workspace.search) { _, _ in reconcileSelection() }
         .onChange(of: workspace.month) { _, _ in reconcileSelection() }
         .onChange(of: workspace.allDates) { _, _ in reconcileSelection() }
         .onChange(of: workspace.status) { _, _ in reconcileSelection() }
+        .onChange(of: workspace.excludedTypes) { _, _ in reconcileSelection() }
         .task(id: listKey + "|" + (workspace.selection ?? "")) { await fetchDetail(force: false) }
         .sheet(item: $workspace.browserRecord) { record in
             MacSimpleOneBrowser(record: record, coordinator: coordinator, config: config)
         }
     }
+    private var listLifecycle: some View {
+        content
+            .task(id: refreshKey) { try? await repository.load(collection) }
+            .task(id: listKey) { await prepareRows() }
+    }
+    private func prepareRows() async {
+        let captured = coordinator.context, records = repository.records(collection)
+        let capturedCollection = collection
+        let prepared = await Task.detached(priority: .userInitiated) {
+            records.map(MacRequestRow.init).sorted {
+                if $0.sortDate != $1.sortDate { return $0.sortDate > $1.sortDate }
+                return $0.record.number.localizedStandardCompare($1.record.number) == .orderedDescending
+            }
+        }.value
+        guard !Task.isCancelled, coordinator.context == captured, collection == capturedCollection else { return }
+        workspace.prepared = prepared
+        reconcileSelection()
+    }
     private var controls: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 10) {
-                Picker("Заявки", selection: $workspace.scope) { ForEach(RequestsScope.allCases) { Text($0.title).tag($0) } }
-                    .labelsHidden().pickerStyle(.segmented).frame(width: 280)
+                if collectionOverride == nil {
+                    Picker("Заявки", selection: $workspace.scope) { ForEach(RequestsScope.allCases) { Text($0.title).tag($0) } }
+                        .labelsHidden().pickerStyle(.segmented).frame(width: 280)
+                } else { Text(collection.title).font(.headline) }
                 Spacer(minLength: 0)
                 TextField("Поиск по заявкам", text: $workspace.search).textFieldStyle(.roundedBorder).frame(minWidth: 100, maxWidth: 240)
-                if repository.loading.contains(workspace.scope.source) { ProgressView().controlSize(.small) }
-                Button { Task { try? await repository.load(workspace.scope.source, force: true) } } label: { Image(systemName: "arrow.clockwise") }
-                    .help("Полностью обновить заявки").disabled(repository.loading.contains(workspace.scope.source))
+                if repository.loading.contains(collection) { ProgressView().controlSize(.small) }
+                Button { Task { try? await repository.load(collection, force: true) } } label: { Image(systemName: "arrow.clockwise") }
+                    .help("Полностью обновить заявки").disabled(repository.loading.contains(collection))
             }
             HStack {
-                if workspace.scope == .closed {
+                if isGroupArchive {
+                    Text(query.isEmpty ? "Сегодня и вчера" : "Поиск по всему архиву").foregroundStyle(.secondary)
+                    Menu("Типы заявок") {
+                        ForEach(types, id: \.self) { type in
+                            Toggle(type.isEmpty ? "Тип не указан" : RequestsPolicy.typeTitle(type), isOn: Binding(
+                                get: { !workspace.excludedTypes.contains(type) },
+                                set: { visible in if visible { workspace.excludedTypes.remove(type) } else { workspace.excludedTypes.insert(type) } }))
+                        }
+                    }.disabled(types.isEmpty)
+                } else if isClosed {
                     DatePicker("Месяц", selection: $workspace.month, displayedComponents: .date).frame(width: 180).disabled(workspace.allDates || !query.isEmpty)
                     Toggle("Все даты", isOn: $workspace.allDates).toggleStyle(.checkbox).disabled(!query.isEmpty)
                 } else {
@@ -99,10 +135,10 @@ struct MacRequestsScreen: View {
         Table(rows, selection: $workspace.selection) {
             TableColumn("Номер") { Text($0.record.incomingNumber.isEmpty ? $0.record.number : $0.record.incomingNumber) }.width(min: 100, ideal: 125)
             TableColumn("Тип") { Text(RequestsPolicy.typeTitle($0.record.requestType)) }.width(min: 80, ideal: 105)
-            TableColumn("Статус") { Text(workspace.scope == .closed ? $0.record.state : $0.status) }.width(min: 90, ideal: 130)
-            TableColumn(workspace.scope == .closed ? "Выполнена / регистрация" : "Предельный срок") { row in
-                Text(workspace.scope == .closed ? RequestsPolicy.effectiveTime(row.record) : row.record.deadline)
-                    .foregroundStyle(workspace.scope != .closed && row.record.isOverdue ? .red : .primary)
+            TableColumn("Статус") { Text(isClosed ? $0.record.state : $0.status) }.width(min: 90, ideal: 130)
+            TableColumn(isClosed ? "Выполнена / регистрация" : "Предельный срок") { row in
+                Text(isClosed ? RequestsPolicy.effectiveTime(row.record) : row.record.deadline)
+                    .foregroundStyle(!isClosed && row.record.isOverdue ? .red : .primary)
             }.width(min: 130, ideal: 155)
             TableColumn("Заказчик") { Text($0.record.customer) }.width(min: 100, ideal: 180)
             TableColumn("Адрес") { Text($0.record.address) }.width(min: 130, ideal: 230)
@@ -117,8 +153,8 @@ struct MacRequestsScreen: View {
         }
         .overlay {
             if rows.isEmpty {
-                if repository.loading.contains(workspace.scope.source) && !repository.hasSnapshot(workspace.scope.source) { ProgressView("Загрузка заявок…") }
-                else if let error = repository.errors[workspace.scope.source], !repository.hasSnapshot(workspace.scope.source) {
+                if repository.loading.contains(collection) && !repository.hasSnapshot(collection) { ProgressView("Загрузка заявок…") }
+                else if let error = repository.errors[collection], !repository.hasSnapshot(collection) {
                     ContentUnavailableView("Не удалось загрузить заявки", systemImage: "exclamationmark.triangle", description: Text(error))
                 } else { ContentUnavailableView("Заявки не найдены", systemImage: "checklist", description: Text(query.isEmpty ? "Попробуйте другой период или обновите список." : "Поиск закрытых выполняется по всем датам архива.")) }
             }
@@ -128,12 +164,12 @@ struct MacRequestsScreen: View {
         VStack(alignment: .leading, spacing: 6) {
             HStack {
                 Text("\(rows.count) из \(workspace.prepared.count)").foregroundStyle(.secondary)
-                if workspace.scope == .closed && !query.isEmpty { Text("Поиск по всему архиву").foregroundStyle(.secondary) }
+                if isClosed && !query.isEmpty { Text("Поиск по всему архиву").foregroundStyle(.secondary) }
                 Spacer()
-                if repository.offline.contains(workspace.scope.source) { Label("Локальные данные", systemImage: "wifi.slash").foregroundStyle(.secondary) }
-                if let date = repository.updatedAt(workspace.scope.source) { Text(date, format: .dateTime.day().month().hour().minute()).foregroundStyle(.secondary) }
+                if repository.offline.contains(collection) { Label("Локальные данные", systemImage: "wifi.slash").foregroundStyle(.secondary) }
+                if let date = repository.updatedAt(collection) { Text(date, format: .dateTime.day().month().hour().minute()).foregroundStyle(.secondary) }
             }
-            if let error = repository.errors[workspace.scope.source] ?? repository.cacheWarning {
+            if let error = repository.errors[collection] ?? repository.cacheWarning {
                 Label(error, systemImage: "exclamationmark.triangle").foregroundStyle(.red).textSelection(.enabled)
             }
         }.font(.callout)

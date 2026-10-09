@@ -5,7 +5,13 @@ import Observation
 public final class RequestsRepository {
     private struct Snapshot: Codable { var records: [SimpleOneRequestRecord]; var updatedAt: Date }
     private struct Detail: Codable { var record: SimpleOneRequestRecord; var fetchedAt: Date }
-    private struct Vault: Codable { var lists: [SimpleOneRequestSource: Snapshot] = [:]; var details: [String: Detail] = [:] }
+    private struct TimeSnapshot: Codable { var entries: [TimeReportEntry]; var updatedAt: Date }
+    private struct Vault: Codable {
+        var lists: [SimpleOneRequestSource: Snapshot] = [:]
+        var details: [String: Detail] = [:]
+        var extraLists: [String: Snapshot]?
+        var timeReports: TimeSnapshot?
+    }
     private let session: () -> SimpleOneSession?
     private let context: () -> SessionContext?
     private let storage: () throws -> ScopedSnapshotStorage
@@ -15,17 +21,23 @@ public final class RequestsRepository {
     private var vault = Vault()
     private var hydrated = false
     private var hydration: Task<Vault, Error>?
-    private var flights: [SimpleOneRequestSource: Task<Void, Error>] = [:]
-    private var flightIDs: [SimpleOneRequestSource: UUID] = [:]
+    private var flights: [RequestCollection: Task<Void, Error>] = [:]
+    private var flightIDs: [RequestCollection: UUID] = [:]
+    private var timeFlight: Task<Void, Error>?
+    private var timeFlightID: UUID?
+    private var loadedTime = false
+    public private(set) var isLoadingTime = false
+    public private(set) var timeOffline = false
+    public private(set) var timeError: String?
     private var detailFlights: [String: Task<SimpleOneRequestRecord, Error>] = [:]
     private var detailIDs: [String: UUID] = [:]
-    private var loaded: Set<SimpleOneRequestSource> = []
+    private var loaded: Set<RequestCollection> = []
     private var revision: UInt64 = 0
     private var persistence: Task<Void, Error>?
     private var persistenceID: UUID?
-    public private(set) var loading: Set<SimpleOneRequestSource> = []
-    public private(set) var offline: Set<SimpleOneRequestSource> = []
-    public private(set) var errors: [SimpleOneRequestSource: String] = [:]
+    public private(set) var loading: Set<RequestCollection> = []
+    public private(set) var offline: Set<RequestCollection> = []
+    public private(set) var errors: [RequestCollection: String] = [:]
     public private(set) var cacheWarning: String?
     private var active: Bool { bound != nil && bound == context() && session()?.user.sysID == bound?.simpleOneUserID }
 
@@ -34,7 +46,8 @@ public final class RequestsRepository {
     }
     public func synchronizeSession() {
         guard bound != context() else { return }
-        hydration?.cancel(); persistence?.cancel(); flights.values.forEach { $0.cancel() }; detailFlights.values.forEach { $0.cancel() }
+        hydration?.cancel(); persistence?.cancel(); timeFlight?.cancel(); flights.values.forEach { $0.cancel() }; detailFlights.values.forEach { $0.cancel() }
+        timeFlight = nil; timeFlightID = nil; loadedTime = false; isLoadingTime = false; timeOffline = false; timeError = nil
         bound = context(); vault = Vault(); hydrated = false; hydration = nil; persistence = nil; persistenceID = nil
         flights = [:]; flightIDs = [:]; detailFlights = [:]; detailIDs = [:]; loaded = []; loading = []; offline = []; errors = [:]; cacheWarning = nil; revision &+= 1
     }
@@ -50,9 +63,18 @@ public final class RequestsRepository {
     private func scope(_ captured: SessionContext) throws -> SnapshotScope {
         try SnapshotScope(userID: captured.userID, simpleOneUserID: captured.simpleOneUserID)
     }
-    public func records(_ source: SimpleOneRequestSource) -> [SimpleOneRequestRecord] { active ? vault.lists[source]?.records ?? [] : [] }
-    public func hasSnapshot(_ source: SimpleOneRequestSource) -> Bool { active && vault.lists[source] != nil }
-    public func updatedAt(_ source: SimpleOneRequestSource) -> Date? { active ? vault.lists[source]?.updatedAt : nil }
+    private func snapshot(_ collection: RequestCollection) -> Snapshot? {
+        if case .personal(let source) = collection { return vault.lists[source] }
+        return vault.extraLists?[collection.key]
+    }
+    public func records(_ collection: RequestCollection) -> [SimpleOneRequestRecord] { active ? snapshot(collection)?.records ?? [] : [] }
+    public func hasSnapshot(_ collection: RequestCollection) -> Bool { active && snapshot(collection) != nil }
+    public func updatedAt(_ collection: RequestCollection) -> Date? { active ? snapshot(collection)?.updatedAt : nil }
+    public func records(_ source: SimpleOneRequestSource) -> [SimpleOneRequestRecord] { records(.personal(source)) }
+    public func hasSnapshot(_ source: SimpleOneRequestSource) -> Bool { hasSnapshot(.personal(source)) }
+    public func updatedAt(_ source: SimpleOneRequestSource) -> Date? { updatedAt(.personal(source)) }
+    public var timeEntries: [TimeReportEntry] { active ? vault.timeReports?.entries ?? [] : [] }
+    public var timeUpdatedAt: Date? { active ? vault.timeReports?.updatedAt : nil }
     public func prepare() async throws {
         let (captured, _) = try capture()
         if hydrated { return }
@@ -93,51 +115,54 @@ public final class RequestsRepository {
         do { try await task.value; try check(captured); if id == persistenceID { persistence = nil; persistenceID = nil; cacheWarning = nil } }
         catch { if id == persistenceID { persistence = nil; persistenceID = nil }; throw error }
     }
-    public func load(_ source: SimpleOneRequestSource, force: Bool = false) async throws {
+    public func load(_ source: SimpleOneRequestSource, force: Bool = false) async throws { try await load(.personal(source), force: force) }
+    public func load(_ collection: RequestCollection, force: Bool = false) async throws {
         let (captured, credentials) = try capture(); try await prepare(); try check(captured)
-        if !force, loaded.contains(source) { return }
-        if let flight = flights[source] { try await flight.value; try check(captured); return }
-        let id = UUID(); flightIDs[source] = id; loading.insert(source); errors[source] = nil
+        if !force, loaded.contains(collection) { return }
+        if let flight = flights[collection] { try await flight.value; try check(captured); return }
+        let id = UUID(); flightIDs[collection] = id; loading.insert(collection); errors[collection] = nil
         let api = service()
         let task = Task {
             do {
-                let records = try await api.fetch(source: source, userID: credentials.user.sysID, authKey: credentials.authKey); try self.check(captured)
-                self.vault.lists[source] = Snapshot(records: records, updatedAt: Date()); self.revision &+= 1
-                let versions = Dictionary(uniqueKeysWithValues: records.map { ($0.id, $0.sysUpdatedAt ?? "") })
-                self.vault.details = self.vault.details.filter { key, value in
-                    value.record.source != source || versions[key] == (value.record.sysUpdatedAt ?? "")
+                let records = try await api.fetch(collection: collection, userID: credentials.user.sysID, authKey: credentials.authKey); try self.check(captured)
+                let snapshot = Snapshot(records: records, updatedAt: Date())
+                if case .personal(let source) = collection { self.vault.lists[source] = snapshot }
+                else { if self.vault.extraLists == nil { self.vault.extraLists = [:] }; self.vault.extraLists?[collection.key] = snapshot }
+                self.revision &+= 1
+                for record in records {
+                    if let cached = self.vault.details[record.id], cached.record.sysUpdatedAt != record.sysUpdatedAt { self.vault.details[record.id] = nil }
                 }
-                self.loaded.insert(source); self.offline.remove(source)
+                self.loaded.insert(collection); self.offline.remove(collection)
                 do { try await self.persist(captured) }
                 catch { try self.check(captured); self.cacheWarning = "Данные загружены, но кеш не сохранён: " + error.localizedDescription }
                 try self.check(captured)
             } catch {
                 if self.bound == captured, !AppErrorClassification.isCancellation(error) {
-                    self.errors[source] = error.localizedDescription
-                    if case .network = AppErrorClassification.classification(for: error) { self.offline.insert(source) }
+                    self.errors[collection] = error.localizedDescription
+                    if case .network = AppErrorClassification.classification(for: error) { self.offline.insert(collection) }
                     self.handleAuth(error)
                 }
                 throw error
             }
-        }; flights[source] = task
-        defer { if flightIDs[source] == id { flights[source] = nil; flightIDs[source] = nil; loading.remove(source) } }
+        }; flights[collection] = task
+        defer { if flightIDs[collection] == id { flights[collection] = nil; flightIDs[collection] = nil; loading.remove(collection) } }
         try await task.value; try check(captured)
     }
     public func cachedDetail(_ record: SimpleOneRequestRecord) -> SimpleOneRequestRecord {
-        guard active, let cached = vault.details[record.id], (cached.record.sysUpdatedAt ?? "") >= (record.sysUpdatedAt ?? "") else { return record }
-        return cached.record
+        guard active, let cached = vault.details[record.id], let version = record.sysUpdatedAt, !version.isEmpty, cached.record.sysUpdatedAt == version else { return record }
+        var value = cached.record; value.source = record.source; return value
     }
     public func detail(_ record: SimpleOneRequestRecord, force: Bool = false) async throws -> SimpleOneRequestRecord {
         let (captured, credentials) = try capture(); try await prepare(); try check(captured)
         if !force, let cached = vault.details[record.id], Date().timeIntervalSince(cached.fetchedAt) < 600,
-           (cached.record.sysUpdatedAt ?? "") >= (record.sysUpdatedAt ?? "") { return cached.record }
-        if let flight = detailFlights[record.id] { let value = try await flight.value; try check(captured); return value }
+           let version = record.sysUpdatedAt, !version.isEmpty, cached.record.sysUpdatedAt == version { return cachedDetail(record) }
+        if let flight = detailFlights[record.id] { var value = try await flight.value; try check(captured); value.source = record.source; return value }
         let id = UUID(), api = service(); detailIDs[record.id] = id
         let task = Task {
             do {
                 let result = try await api.detail(record: record, authKey: credentials.authKey); try self.check(captured)
                 guard result.sysID == record.sysID else { throw SimpleOneServiceError.invalidResponse }
-                if let current = self.vault.lists[record.source]?.records.first(where: { $0.id == record.id }),
+                if let current = (Array(self.vault.lists.values) + Array((self.vault.extraLists ?? [:]).values)).flatMap(\.records).filter({ $0.id == record.id }).max(by: { ($0.sysUpdatedAt ?? "") < ($1.sysUpdatedAt ?? "") }),
                    (current.sysUpdatedAt ?? "") > (result.sysUpdatedAt ?? "") { return current }
                 self.vault.details[record.id] = Detail(record: result, fetchedAt: Date())
                 if self.vault.details.count > 200 {
@@ -149,7 +174,31 @@ public final class RequestsRepository {
             } catch { if self.bound == captured { self.handleAuth(error) }; throw error }
         }; detailFlights[record.id] = task
         defer { if detailIDs[record.id] == id { detailIDs[record.id] = nil; detailFlights[record.id] = nil } }
-        let result = try await task.value; try check(captured); return result
+        var result = try await task.value; try check(captured); result.source = record.source; return result
+    }
+    public func loadTimeReports(force: Bool = false) async throws {
+        let (captured, credentials) = try capture(); try await prepare(); try check(captured)
+        if !force, loadedTime { return }
+        if let timeFlight { try await timeFlight.value; try check(captured); return }
+        let id = UUID(), api = service(); timeFlightID = id; isLoadingTime = true; timeError = nil
+        let task = Task {
+            do {
+                let entries = try await api.fetchTimeReports(authKey: credentials.authKey); try self.check(captured)
+                self.vault.timeReports = TimeSnapshot(entries: TimeReportPolicy.merge(existing: self.vault.timeReports?.entries ?? [], incoming: entries), updatedAt: Date())
+                self.loadedTime = true; self.timeOffline = false; self.revision &+= 1
+                do { try await self.persist(captured) } catch { try self.check(captured); self.cacheWarning = error.localizedDescription }
+                try self.check(captured)
+            } catch {
+                if self.bound == captured, !AppErrorClassification.isCancellation(error) {
+                    self.timeError = error.localizedDescription
+                    if case .network = AppErrorClassification.classification(for: error) { self.timeOffline = true }
+                    self.handleAuth(error)
+                }
+                throw error
+            }
+        }; timeFlight = task
+        defer { if timeFlightID == id { timeFlight = nil; timeFlightID = nil; isLoadingTime = false } }
+        try await task.value; try check(captured)
     }
     private func handleAuth(_ error: Error) {
         if let error = error as? SimpleOneServiceError, case .unauthorized = error { authFailure(); synchronizeSession() }

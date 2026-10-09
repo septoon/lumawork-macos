@@ -35,6 +35,7 @@ struct MacRequestDetailView: View {
                 value("Телефон", record.contactPhone ?? "")
                 value("ID терминала", record.terminalID)
                 value("Модель", record.terminalModel)
+                if isCoordinationReturnEquipmentRequestType(record.requestType) { value("Серийный номер", CoordinationPolicy.returnEquipmentSerial(record)) }
                 value("Комментарий инженера", record.engineerComment)
                 value("Код закрытия", record.closureCode ?? "")
                 value("Решение", record.resolution ?? "")

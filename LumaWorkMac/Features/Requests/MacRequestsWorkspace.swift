@@ -35,11 +35,13 @@ final class MacRequestsWorkspace {
     var month = Date()
     var allDates = false
     var status = MacRequestStatusFilter.all
+    var excludedTypes: Set<String> = []
     var selection: String?
     var prepared: [MacRequestRow] = []
     var detail: SimpleOneRequestRecord?
     var detailError: String?
     var isLoadingDetail = false
     var browserRecord: SimpleOneRequestRecord?
-    func reset() { prepared = []; selection = nil; detail = nil; detailError = nil; isLoadingDetail = false; browserRecord = nil; search = "" }
+    func clearResults() { prepared = []; selection = nil; detail = nil; detailError = nil; isLoadingDetail = false; browserRecord = nil }
+    func reset() { clearResults(); search = ""; excludedTypes = [] }
 }

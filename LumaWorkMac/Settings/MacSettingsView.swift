@@ -45,6 +45,18 @@ struct MacSettingsView: View {
                 Text("Идентификаторы сохраняются только на этом Mac. После изменения обновите заявки.")
                     .font(.caption).foregroundStyle(.secondary)
             }
+            Section("Координация") {
+                ForEach(SimpleOneQueryConfiguration.groupArchiveFields, id: \.key) { field in
+                    MacSimpleOneQueryField(key: field.key, title: field.title)
+                }
+                ForEach(CoordinationRegion.allCases) { region in
+                    DisclosureGroup(region.title) {
+                        ForEach(SimpleOneQueryConfiguration.fields(for: region), id: \.key) { field in
+                            MacSimpleOneQueryField(key: field.key, title: field.title)
+                        }
+                    }
+                }
+            }
             Section("Приложение") {
                 LabeledContent("Версия", value: AppBuildIdentity.display)
             }
