@@ -20,6 +20,20 @@ struct MacEquipmentScreen: View {
     private var error: String? { model.error ?? (model.office ? container.equipment.errors["all"] : container.backpack.errors["all"]) }
     private var photos: [EquipmentPhoto] { container.equipmentPhotos.value(model.office ? "office" : "backpack") ?? EquipmentPhotoService(config: container.config).fallback(office: model.office) }
     var body: some View {
+        HSplitView {
+            content.frame(minWidth: 420, maxWidth: .infinity, maxHeight: .infinity)
+            if model.selection != nil {
+                VStack(spacing: 0) {
+                    HStack { Spacer(); Button { model.selection = nil } label: { Image(systemName: "xmark") }.buttonStyle(.plain).help("Закрыть сведения") }.padding(10)
+                    inspector.padding(16)
+                }.frame(minWidth: 280, idealWidth: 330, maxWidth: 460, maxHeight: .infinity)
+            }
+        }
+        .searchable(text: $model.search, prompt: "Название, серийный номер")
+        .task(id: "\(container.coordinator.context?.epoch ?? 0)|\(model.office)") { await container.loadEquipment(office: model.office) }
+        .onChange(of: model.office) { _, _ in model.selection = nil; model.search = "" }
+    }
+    private var content: some View {
         VStack(spacing: 0) {
             HStack {
                 Picker("Оборудование", selection: $model.office) { Text("ЗИП").tag(false); Text("Личное оборудование").tag(true) }.pickerStyle(.segmented).frame(width: 330)
@@ -36,10 +50,6 @@ struct MacEquipmentScreen: View {
                 if model.office { officeTable } else { backpackTable }
             }
         }
-        .searchable(text: $model.search, prompt: "Название, серийный номер")
-        .task(id: "\(container.coordinator.context?.epoch ?? 0)|\(model.office)") { await container.loadEquipment(office: model.office) }
-        .onChange(of: model.office) { _, _ in model.selection = nil; model.search = "" }
-        .inspector(isPresented: Binding(get: { model.selection != nil }, set: { if !$0 { model.selection = nil } })) { inspector.padding(16).inspectorColumnWidth(min: 280, ideal: 330, max: 460) }
     }
     private var officeTable: some View {
         Table(office, selection: $model.selection) {

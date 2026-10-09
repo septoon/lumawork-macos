@@ -25,6 +25,21 @@ struct MacEmployeesScreen: View {
         return container.employeeDetails.value(id) ?? directory?.employees.first { $0.id == id }
     }
     var body: some View {
+        HSplitView {
+            content.frame(minWidth: 420, maxWidth: .infinity, maxHeight: .infinity)
+            if model.selection != nil {
+                VStack(spacing: 0) {
+                    HStack { Spacer(); Button { model.selection = nil } label: { Image(systemName: "xmark") }.buttonStyle(.plain).help("Закрыть сведения") }.padding(10)
+                    employeeInspector.padding(16)
+                }.frame(minWidth: 280, idealWidth: 340, maxWidth: 480, maxHeight: .infinity)
+            }
+        }
+        .searchable(text: $model.search, prompt: "ФИО, логин, должность")
+        .task(id: container.coordinator.context) { await bootstrap() }
+        .task(id: model.key) { do { try await Task.sleep(for: .milliseconds(300)); await load() } catch {} }
+        .sheet(isPresented: $model.showsSchedule) { MacWorkScheduleView(model: model.schedule, container: container) }
+    }
+    private var content: some View {
         VStack(spacing: 0) {
             HStack {
                 Picker("Город", selection: Binding(get: { model.city?.id ?? "" }, set: { id in model.city = savedCities.first { $0.id == id }; model.selection = nil })) {
@@ -60,13 +75,6 @@ struct MacEmployeesScreen: View {
                 HStack { Text("Сотрудников: \(directory?.totalCount ?? 0)"); Spacer() }.font(.caption).foregroundStyle(.secondary).padding(8)
             }
         }
-        .searchable(text: $model.search, prompt: "ФИО, логин, должность")
-        .task(id: container.coordinator.context) { await bootstrap() }
-        .task(id: model.key) { do { try await Task.sleep(for: .milliseconds(300)); await load() } catch {} }
-        .inspector(isPresented: Binding(get: { model.selection != nil }, set: { if !$0 { model.selection = nil } })) {
-            employeeInspector.padding(16).inspectorColumnWidth(min: 280, ideal: 340, max: 480)
-        }
-        .sheet(isPresented: $model.showsSchedule) { MacWorkScheduleView(model: model.schedule, container: container) }
     }
     private var savedCities: [SimpleOneEmployeeAddress] { container.employeeCities.value("saved") ?? [] }
     private var cityPicker: some View {
