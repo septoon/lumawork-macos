@@ -157,6 +157,9 @@ struct MacWorkspaceView: View {
                 salary.lock(access: container.salaryAccess, authenticator: container.salaryAuthenticator, cancelAuthentication: false)
             }
         }
+        .onChange(of: coordinator.protectedAuthenticationGeneration) { _, _ in
+            salary.lock(access: container.salaryAccess, authenticator: container.salaryAuthenticator)
+        }
         .onDisappear { assistant.reset(); salary.isPresented = false; salary.lock(access: container.salaryAccess, authenticator: container.salaryAuthenticator) }
     }
 

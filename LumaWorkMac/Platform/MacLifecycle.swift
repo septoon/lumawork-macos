@@ -23,7 +23,9 @@ final class MacLifecycle {
             self?.coordinator.lockProtectedContent()
         }
         observe(NotificationCenter.default, NSApplication.didResignActiveNotification) { [weak self] in
-            self?.coordinator.lockProtectedContent()
+            // LocalAuthentication's system panel also deactivates the app.
+            // Revoke displayed content, but let its pending verification finish.
+            self?.coordinator.lockProtectedContent(cancelAuthentication: false)
         }
     }
 

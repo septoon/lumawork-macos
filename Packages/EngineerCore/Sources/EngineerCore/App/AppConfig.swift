@@ -51,10 +51,17 @@ public struct AppConfig {
     }
 
     public static func resolveFirst(_ keys: String...) -> String? {
-        resolve(
+        // Optional private provisioning, independent of any iOS checkout.
+        let localWiki = Bundle.main.url(forResource: "Wiki.local", withExtension: "plist")
+            .flatMap { NSDictionary(contentsOf: $0) as? [String: String] } ?? [:]
+        return resolve(
             keys: keys,
             environment: ProcessInfo.processInfo.environment,
-            bundleValues: Dictionary(uniqueKeysWithValues: Set(keys).map { ($0, Bundle.main.object(forInfoDictionaryKey: $0) as? String) }),
+            bundleValues: Dictionary(uniqueKeysWithValues: Set(keys).map { key in
+                let bundled = Bundle.main.object(forInfoDictionaryKey: key) as? String
+                let wikiValue = ["WIKI_API_URL", "WIKI_API_ORIGIN", "WIKI_API_TOKEN"].contains(key) ? localWiki[key] : nil
+                return (key, bundled.flatMap { $0.isEmpty || $0.hasPrefix("$(") ? nil : $0 } ?? wikiValue)
+            }),
             defaultValues: Dictionary(uniqueKeysWithValues: Set(keys).map { ($0, UserDefaults.standard.string(forKey: $0)) })
         )
     }

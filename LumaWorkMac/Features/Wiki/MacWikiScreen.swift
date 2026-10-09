@@ -63,12 +63,14 @@ struct MacWikiScreen: View {
                 Label("Wiki", systemImage: "books.vertical").font(.headline)
                 if let updated = updateDate { Text("Обновлено: " + updated).font(.caption).foregroundStyle(.secondary) }
                 Spacer()
-                Button("Доступ к Wiki") { model.tokenDraft = ""; model.showsCredentials = true }
+                if !configured || repository.authorizationRequired {
+                    Button("Доступ к Wiki") { model.tokenDraft = ""; model.showsCredentials = true }
+                }
                 Button("Готово") { dismiss() }.keyboardShortcut(.cancelAction)
             }.padding(12)
             Divider()
             if !configured || repository.authorizationRequired {
-                ContentUnavailableView("Нужен доступ к Wiki", systemImage: "lock", description: Text("Укажите токен Wiki для этой учётной записи. Адрес сервиса задаётся в локальной конфигурации приложения."))
+                ContentUnavailableView("Нужен доступ к Wiki", systemImage: "lock", description: Text("Служебный ключ Wiki задаётся при настройке приложения. Если доступ отсутствует, обратитесь к администратору."))
             } else {
                 HSplitView {
                     VStack(spacing: 0) {
@@ -156,7 +158,7 @@ struct MacWikiScreen: View {
     private var credentials: some View {
         VStack(alignment: .leading, spacing: 14) {
             Text("Доступ к Wiki").font(.headline)
-            Text("Токен хранится в Keychain отдельно для вашей учётной записи.").foregroundStyle(.secondary)
+            Text("Это служебный ключ сервера Wiki, который выдаёт администратор. Обычно он уже настроен в приложении. Введённый вручную ключ хранится в Keychain отдельно для вашей учётной записи.").foregroundStyle(.secondary)
             SecureField("Токен Wiki", text: $model.tokenDraft).textFieldStyle(.roundedBorder)
             HStack {
                 Button("Отмена") { model.tokenDraft = ""; model.showsCredentials = false }.keyboardShortcut(.cancelAction)

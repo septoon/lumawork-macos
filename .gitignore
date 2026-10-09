@@ -62,3 +62,6 @@ Screenshot*.png
 # Local build and packaging scripts
 /scripts/
 /script/
+
+# Local Codex Run environment
+/.codex/environments/

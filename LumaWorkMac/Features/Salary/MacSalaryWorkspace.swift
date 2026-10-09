@@ -52,13 +52,37 @@ final class MacSalaryWorkspace {
     func systemUnlock(authenticator: MacSalaryAuthenticator, access: SalaryAccess, coordinator: EngineerApplicationCoordinator, automatically: Bool = false) async {
         guard !busy, isPresented, NSApp.isActive, let context = coordinator.context else { return }
         let id = UUID(); operation = id; busy = true; error = nil
+        let authenticationGeneration = coordinator.protectedAuthenticationGeneration
         let system = LAContext(); systemContext = system
         defer { if operation == id { busy = false; systemContext = nil } }
         do {
             try await authenticator.authenticate(system, automatically: automatically, account: context)
-            guard operation == id, isPresented, coordinator.accepts(context) else { return }
+            // evaluatePolicy can succeed before its system panel restores app activation.
+            // Never expose protected content in the background or reuse a proof after sleep.
+            let clock = ContinuousClock()
+            let deadline = clock.now.advanced(by: .seconds(3))
+            while true {
+                try Task.checkCancellation()
+                guard operation == id, isPresented, coordinator.accepts(context),
+                      coordinator.protectedAuthenticationGeneration == authenticationGeneration else { return }
+                if NSApp.isActive { break }
+                guard clock.now < deadline else { throw CancellationError() }
+                try await Task.sleep(for: .milliseconds(20))
+            }
             try authorize(access: access, coordinator: coordinator, context: context)
-        } catch { if operation == id, isPresented, coordinator.accepts(context) { self.error = "Системная проверка не завершена. Можно войти по PIN." } }
+        } catch {
+            if operation == id, isPresented, coordinator.accepts(context) {
+                if let failure = error as? LAError {
+                    switch failure.code {
+                    case .userCancel, .userFallback, .appCancel, .systemCancel: self.error = nil
+                    case .biometryLockout: self.error = "Touch ID временно заблокирован. Введите PIN или пароль Mac."
+                    default: self.error = "Системная проверка: " + failure.localizedDescription + " Можно войти по PIN."
+                    }
+                } else if error is CancellationError {
+                    self.error = "Вернитесь в приложение и повторите вход или введите PIN."
+                } else { self.error = error.localizedDescription }
+            }
+        }
     }
     func recover(authenticator: MacSalaryAuthenticator, coordinator: EngineerApplicationCoordinator) async {
         guard !busy, isPresented, let context = coordinator.context else { return }

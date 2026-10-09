@@ -13,6 +13,7 @@ public final class EngineerApplicationCoordinator {
     public private(set) var appError: String?
     public private(set) var simpleOneError: String?
     public private(set) var protectedContentGeneration: UInt64 = 0
+    public private(set) var protectedAuthenticationGeneration: UInt64 = 0
 
     private let appAPI: any AppAuthenticating
     private let simpleOneAPI: any SimpleOneAuthenticating
@@ -274,7 +275,10 @@ public final class EngineerApplicationCoordinator {
         catch { appError = "Не удалось удалить credentials из Keychain: \(error.localizedDescription)" }
     }
 
-    public func lockProtectedContent() { protectedContentGeneration &+= 1 }
+    public func lockProtectedContent(cancelAuthentication: Bool = true) {
+        protectedContentGeneration &+= 1
+        if cancelAuthentication { protectedAuthenticationGeneration &+= 1 }
+    }
     public func resumeAfterWake() async { await refreshSession() }
 
     private func isCurrent(_ ticket: UInt64) -> Bool { ticket == appAuthGeneration && !Task.isCancelled }
