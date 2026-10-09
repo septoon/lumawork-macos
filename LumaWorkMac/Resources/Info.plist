@@ -20,5 +20,7 @@
     <key>WIKI_API_URL</key><string>https://wiki.lumastack.ru</string>
     <key>APP_SITE_URL</key><string>https://app.lumastack.ru</string>
     <key>MAPS_ROUTE_URL</key><string>https://yandex.ru/maps/</string>
+    <key>NSMicrophoneUsageDescription</key><string>Микрофон нужен для диктовки вопроса помощнику.</string>
+    <key>NSSpeechRecognitionUsageDescription</key><string>Распознавание речи нужно для ввода вопроса помощнику. Используется локальная диктовка.</string>
 </dict>
 </plist>

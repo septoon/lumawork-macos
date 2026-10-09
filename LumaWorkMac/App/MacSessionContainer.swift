@@ -1,5 +1,6 @@
 import Foundation
 import EngineerCore
+import CryptoKit
 
 @MainActor
 final class MacSessionContainer {
@@ -103,6 +104,32 @@ final class MacSessionContainer {
         try? await equipmentPhotos.load(office ? "office" : "backpack", force: force) { [config] _ in try await EquipmentPhotoService(config: config).manifest(office: office) }
     }
 
+    let notices = MacNoticeCenter()
+    lazy var assistantTools = AssistantLocalToolExecutor(requests: requests, backpack: backpack, context: { [coordinator] in coordinator.context }, loadBackpack: { [weak self] in
+        guard let self else { throw CancellationError() }
+        await self.loadEquipment(office: false)
+        guard self.backpack.value("all") != nil else { throw AppServiceError.message(self.backpack.errors["all"] ?? "Войдите в SimpleOne для просмотра оборудования.") }
+    })
+    lazy var assistant = AssistantRepository(session: { [coordinator] in coordinator.session }, context: { [coordinator] in coordinator.context }, storage: { [weak self] in
+        guard let self else { throw SnapshotStorageError.missingIdentity }; return try self.snapshotStorage()
+    }, service: { [config] in AssistantAPI(config: config, authToken: $0.token) }, executeTools: { [weak self] calls, context in
+        guard let self else { throw CancellationError() }; return try await self.assistantTools.execute(calls, expectedContext: context)
+    }, authFailure: { [coordinator] in coordinator.invalidateSession(message: "Сессия истекла. Войдите снова.") }, report: { [weak self] in self?.notices.show($0) })
+    lazy var wiki = WikiRepository(namespace: "wiki.v1." + SHA256.hash(data: Data((config.wikiAPIOrigin ?? "").utf8)).map { String(format: "%02x", $0) }.joined(), context: { [coordinator] in coordinator.context }, storage: { [weak self] in
+        guard let self else { throw SnapshotStorageError.missingIdentity }; return try self.snapshotStorage()
+    }, service: { [weak self] in
+        guard let self else { throw CancellationError() }; return WikiAPI(config: self.config, token: try self.wikiToken())
+    }, report: { [weak self] in self?.notices.show($0) })
+    func wikiToken() throws -> String? {
+        guard let user = coordinator.session?.user.id else { return nil }
+        return try keychain.wikiToken(userID: user, origin: config.wikiAPIOrigin ?? "") ?? config.wikiAPIToken
+    }
+    func saveWikiToken(_ value: String, context: SessionContext) throws {
+        guard coordinator.accepts(context) else { throw CancellationError() }
+        try keychain.writeWikiToken(value, userID: context.userID, origin: config.wikiAPIOrigin ?? ""); wiki.synchronizeSession(force: true)
+    }
+    func synchronizeAssistant() { assistant.synchronizeSession(); wiki.synchronizeSession(); notices.clear() }
+
     init(config: AppConfig = AppConfig()) {
         self.config = config
         let keychain = MacKeychain(config: config)
@@ -114,7 +141,7 @@ final class MacSessionContainer {
     func start() {
         guard startup == nil else { return }
         // Remove only our transient previews/downloads left by a previous terminated process.
-        for name in ["EngineerMac-DocumentPreviews", "EngineerMac-FileDownloads", "EngineerMac-RemoteImages"] {
+        for name in ["EngineerMac-DocumentPreviews", "EngineerMac-FileDownloads", "EngineerMac-RemoteImages", "EngineerMac-AssistantPreviews", "EngineerMac-WikiPreviews"] {
             try? FileManager.default.removeItem(at: FileManager.default.temporaryDirectory.appendingPathComponent(name, isDirectory: true))
         }
         lifecycle = MacLifecycle(coordinator: coordinator)

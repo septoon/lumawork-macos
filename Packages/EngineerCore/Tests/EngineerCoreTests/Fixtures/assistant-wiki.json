@@ -1,0 +1,71 @@
+{
+  "syntheticOnly": true,
+  "runRequest": {
+    "requestId": "00000000-0000-4000-8000-000000000001",
+    "conversationId": "00000000-0000-4000-8000-000000000002",
+    "message": "Пример",
+    "currentScreen": "assistant"
+  },
+  "sse": ": keep-alive\n\nevent: delta\ndata: {\"text\":\"При\"}\n\nevent: delta\ndata: {\"text\":\"мер\"}\n\nevent: done\ndata: {\"kind\":\"answer\",\"text\":\"Пример\",\"sources\":[],\"truncated\":false}\n\n",
+  "toolNames": [
+    "active_requests",
+    "closed_requests",
+    "request_details",
+    "backpack"
+  ],
+  "maxToolRequests": 4,
+  "maxToolCycles": 2,
+  "unknownSend": "recover server history before explicit retry with same requestId",
+  "image": {
+    "maximumPixels": 1800,
+    "maximumBytes": 4194304,
+    "mimeType": "image/jpeg"
+  },
+  "document": {
+    "maximumBytes": 12582912,
+    "legacyMaximumBytes": 5242880,
+    "maximumCharacters": 12000,
+    "maximumPDFPages": 30,
+    "maximumOCRPages": 8,
+    "maximumWorksheets": 6,
+    "maximumEntryBytes": 8388608
+  },
+  "wiki": {
+    "search": {
+      "q": "Пример",
+      "limit": "10"
+    },
+    "articleMaxChars": 90000,
+    "searchResponse": {
+      "query": "Пример",
+      "snapshotId": "20261009T120000Z",
+      "results": [
+        {
+          "id": "example",
+          "title": "Пример",
+          "section": "Пример",
+          "sourceUrl": "https://example.invalid/article",
+          "score": 10,
+          "excerpt": "Пример",
+          "hasPdf": true,
+          "pdfUrl": "/pdf/example"
+        }
+      ]
+    },
+    "article": {
+      "id": "example",
+      "title": "Пример",
+      "section": "Пример",
+      "sourceUrl": "https://example.invalid/article",
+      "content": "# Пример\n\nТекст статьи.",
+      "snapshotId": "20261009T120000Z",
+      "hasPdf": true
+    },
+    "pdf": "authenticated internal download to local preview; token never external"
+  },
+  "feedback": {
+    "feedback": "support",
+    "source": "lumawork_like",
+    "clientRequestId": "00000000-0000-4000-8000-000000000003"
+  }
+}

@@ -19,6 +19,7 @@ struct MacWorkspaceView: View {
     @State private var equipment = MacEquipmentWorkspace()
     @State private var employees = MacEmployeesWorkspace()
     @State private var profile = MacProfileWorkspace()
+    @State private var assistant = MacAssistantWorkspace()
     @SceneStorage("EngineerMac.route.date") private var restoredRouteDate = ""
     @SceneStorage("EngineerMac.route.type") private var restoredRouteType = RouteWorkType.pos.rawValue
     @State private var columnVisibility = NavigationSplitViewVisibility.all
@@ -83,6 +84,8 @@ struct MacWorkspaceView: View {
                         MacEquipmentScreen(model: equipment, container: container, openAccount: { workspace.isAccountPresented = true })
                     } else if visibleSection == .employees {
                         MacEmployeesScreen(model: employees, container: container, openAccount: { workspace.isAccountPresented = true })
+                    } else if visibleSection == .wiki {
+                        MacAssistantScreen(model: assistant, container: container)
                     } else if visibleSection == .ftp {
                         MacFTPScreen(workspace: ftp, repository: container.ftp, coordinator: coordinator)
                     } else if visibleSection == .requests {
@@ -115,10 +118,11 @@ struct MacWorkspaceView: View {
                 }
             }
         }
+        .overlay(alignment: .bottom) { MacNoticeBanner(center: container.notices) }
         .focusedSceneValue(\.workspaceActions, commands)
         .focusedSceneValue(\.routeActions, visibleSection == .home ? routeActions : nil)
-        .background(MacWindowDraftGuard(id: workspace.windowID, hasDirty: { route.draft?.isDirty == true || fuel.hasDirty || hasDirtyClient || vehicles.hasDirty || salary.hasDirty || documents.hasDirty || profile.hasDirty },
-                                        save: { try await route.save(repository: container.routes) }, discard: { if profile.hasDirty { profile.reset() } else if documents.hasDirty { documents.reset() } else if salary.hasDirty { salary.discardEditor() } else if vehicles.hasDirty { vehicles.discardEditors() } else if hasDirtyClient { discardClients() } else if fuel.hasDirty { fuel.discardEditors() } else { route.draft?.discard() } }, discardOnly: { fuel.hasDirty || hasDirtyClient || vehicles.hasDirty || salary.hasDirty || documents.hasDirty || profile.hasDirty }))
+        .background(MacWindowDraftGuard(id: workspace.windowID, hasDirty: { route.draft?.isDirty == true || fuel.hasDirty || hasDirtyClient || vehicles.hasDirty || salary.hasDirty || documents.hasDirty || profile.hasDirty || assistant.hasDirty },
+                                        save: { try await route.save(repository: container.routes) }, discard: { if assistant.hasDirty { assistant.discardComposer() } else if profile.hasDirty { profile.reset() } else if documents.hasDirty { documents.reset() } else if salary.hasDirty { salary.discardEditor() } else if vehicles.hasDirty { vehicles.discardEditors() } else if hasDirtyClient { discardClients() } else if fuel.hasDirty { fuel.discardEditors() } else { route.draft?.discard() } }, discardOnly: { fuel.hasDirty || hasDirtyClient || vehicles.hasDirty || salary.hasDirty || documents.hasDirty || profile.hasDirty || assistant.hasDirty }))
         .sheet(isPresented: $workspace.isAccountPresented) { MacAccountView(container: container, profile: profile, documentsWorkspace: documents, logout: commands.logout, navigate: { section in requestWindowAction { profile.isPresented = false; workspace.isAccountPresented = false; workspace.select(section) } }) }
         .sheet(isPresented: Binding(get: { visibleSection == .home && fuel.isGsmPresented }, set: { fuel.isGsmPresented = $0 })) {
             MacGsmReportScreen(workspace: fuel, repository: container.gsmFuel, vehicles: container.vehicles, coordinator: coordinator, selectedDate: route.selectedDate,
@@ -132,11 +136,11 @@ struct MacWorkspaceView: View {
             persistSelection()
             if let date = MacRouteDate.date(restoredRouteDate) { route.selectedDate = date }
             route.workType = RouteWorkType(rawValue: restoredRouteType) ?? .pos
-            container.routes.synchronizeSession(); container.gsmFuel.synchronizeSession(); container.requests.synchronizeSession(); container.clients.synchronizeSession(); container.vehicles.synchronizeSession(); container.salary.synchronizeSession(); container.documents.synchronizeSession(); container.ftp.synchronizeSession(); container.synchronizeTeam()
+            container.routes.synchronizeSession(); container.gsmFuel.synchronizeSession(); container.requests.synchronizeSession(); container.clients.synchronizeSession(); container.vehicles.synchronizeSession(); container.salary.synchronizeSession(); container.documents.synchronizeSession(); container.ftp.synchronizeSession(); container.synchronizeTeam(); container.synchronizeAssistant()
         }
         .onChange(of: coordinator.context) { _, _ in
-            container.routes.synchronizeSession(); container.gsmFuel.synchronizeSession(); container.requests.synchronizeSession(); container.clients.synchronizeSession(); container.vehicles.synchronizeSession(); container.salary.synchronizeSession(); container.documents.synchronizeSession(); container.ftp.synchronizeSession(); container.synchronizeTeam()
-            equipment.reset(); employees.reset(); profile.reset(); documents.reset(); ftp.reset(); fuel.reset(); requests.reset(); coordination.reset(); timeReports.reset(); analytics.reset(); vehicles.reset(); salary.lock(access: container.salaryAccess, authenticator: container.salaryAuthenticator); salary.hidesAmounts = true
+            container.routes.synchronizeSession(); container.gsmFuel.synchronizeSession(); container.requests.synchronizeSession(); container.clients.synchronizeSession(); container.vehicles.synchronizeSession(); container.salary.synchronizeSession(); container.documents.synchronizeSession(); container.ftp.synchronizeSession(); container.synchronizeTeam(); container.synchronizeAssistant()
+            assistant.reset(); equipment.reset(); employees.reset(); profile.reset(); documents.reset(); ftp.reset(); fuel.reset(); requests.reset(); coordination.reset(); timeReports.reset(); analytics.reset(); vehicles.reset(); salary.lock(access: container.salaryAccess, authenticator: container.salaryAuthenticator); salary.hidesAmounts = true
         }
         .onChange(of: route.selectedDate) { _, date in restoredRouteDate = MacRouteDate.key(date) }
         .onChange(of: route.workType) { _, type in restoredRouteType = type.rawValue }
@@ -153,7 +157,7 @@ struct MacWorkspaceView: View {
                 salary.lock(access: container.salaryAccess, authenticator: container.salaryAuthenticator, cancelAuthentication: false)
             }
         }
-        .onDisappear { salary.isPresented = false; salary.lock(access: container.salaryAccess, authenticator: container.salaryAuthenticator) }
+        .onDisappear { assistant.reset(); salary.isPresented = false; salary.lock(access: container.salaryAccess, authenticator: container.salaryAuthenticator) }
     }
 
     private var hasDirtyClient: Bool { requests.hasDirtyClient || coordination.requests.hasDirtyClient || coordination.archive.hasDirtyClient }
