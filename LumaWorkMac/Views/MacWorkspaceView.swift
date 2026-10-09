@@ -20,6 +20,9 @@ struct MacWorkspaceView: View {
     @State private var employees = MacEmployeesWorkspace()
     @State private var profile = MacProfileWorkspace()
     @State private var assistant = MacAssistantWorkspace()
+    @State private var admin = MacAdminWorkspace()
+    @State private var feedback = MacFeedbackWorkspace()
+    @SceneStorage("EngineerMac.feedback.slot") private var feedbackSlot = UUID().uuidString
     @SceneStorage("EngineerMac.route.date") private var restoredRouteDate = ""
     @SceneStorage("EngineerMac.route.type") private var restoredRouteType = RouteWorkType.pos.rawValue
     @State private var columnVisibility = NavigationSplitViewVisibility.all
@@ -97,6 +100,8 @@ struct MacWorkspaceView: View {
                     } else if visibleSection == .timeReport {
                         MacTimeReportsScreen(workspace: timeReports, repository: container.requests, coordinator: coordinator, config: container.config,
                                              openAccount: { workspace.isAccountPresented = true })
+                    } else if visibleSection == .users {
+                        MacAdminScreen(model: admin, container: container)
                     } else if visibleSection == .analytics {
                         MacAnalyticsScreen(workspace: analytics, repository: container.requests, coordinator: coordinator,
                                            openAccount: { workspace.isAccountPresented = true })
@@ -113,6 +118,7 @@ struct MacWorkspaceView: View {
                     Button(action: commands.refresh) { Label("Проверить соединение", systemImage: "arrow.clockwise") }
                         .disabled(!commands.canRefresh)
                         .help("Проверить соединение")
+                    Button { feedback.isPresented = true } label: { Label("Обратная связь", systemImage: "bubble.left.and.bubble.right") }.help("Обратная связь")
                     Button(action: commands.showAccount) { Label("Учётная запись", systemImage: "person.crop.circle") }
                         .help("Учётная запись и вход в SimpleOne")
                 }
@@ -121,8 +127,9 @@ struct MacWorkspaceView: View {
         .overlay(alignment: .bottom) { MacNoticeBanner(center: container.notices) }
         .focusedSceneValue(\.workspaceActions, commands)
         .focusedSceneValue(\.routeActions, visibleSection == .home ? routeActions : nil)
-        .background(MacWindowDraftGuard(id: workspace.windowID, hasDirty: { route.draft?.isDirty == true || fuel.hasDirty || hasDirtyClient || vehicles.hasDirty || salary.hasDirty || documents.hasDirty || profile.hasDirty || assistant.hasDirty },
-                                        save: { try await route.save(repository: container.routes) }, discard: { if assistant.hasDirty { assistant.discardComposer() } else if profile.hasDirty { profile.reset() } else if documents.hasDirty { documents.reset() } else if salary.hasDirty { salary.discardEditor() } else if vehicles.hasDirty { vehicles.discardEditors() } else if hasDirtyClient { discardClients() } else if fuel.hasDirty { fuel.discardEditors() } else { route.draft?.discard() } }, discardOnly: { fuel.hasDirty || hasDirtyClient || vehicles.hasDirty || salary.hasDirty || documents.hasDirty || profile.hasDirty || assistant.hasDirty }))
+        .background(MacWindowDraftGuard(id: workspace.windowID, hasDirty: { route.draft?.isDirty == true || fuel.hasDirty || hasDirtyClient || vehicles.hasDirty || salary.hasDirty || documents.hasDirty || profile.hasDirty || assistant.hasDirty || feedback.hasDirty || admin.hasDirty },
+                                        save: { if feedback.hasDirty { try await feedback.persist(container: container) } else { try await route.save(repository: container.routes) } }, discard: { if feedback.hasDirty { try await feedback.discardUnsaved(container: container) } else if admin.hasDirty { admin.editor = nil; admin.feedbackEditorID = nil } else if assistant.hasDirty { assistant.discardComposer() } else if profile.hasDirty { profile.reset() } else if documents.hasDirty { documents.reset() } else if salary.hasDirty { salary.discardEditor() } else if vehicles.hasDirty { vehicles.discardEditors() } else if hasDirtyClient { discardClients() } else if fuel.hasDirty { fuel.discardEditors() } else { route.draft?.discard() } }, discardOnly: { fuel.hasDirty || hasDirtyClient || vehicles.hasDirty || salary.hasDirty || documents.hasDirty || profile.hasDirty || assistant.hasDirty || feedback.hasDirty || admin.hasDirty }))
+        .sheet(isPresented: $feedback.isPresented) { MacFeedbackScreen(model: feedback, container: container, slotID: $feedbackSlot, initialArea: FeedbackArea(rawValue: visibleSection.rawValue) ?? .other) }
         .sheet(isPresented: $workspace.isAccountPresented) { MacAccountView(container: container, profile: profile, documentsWorkspace: documents, logout: commands.logout, navigate: { section in requestWindowAction { profile.isPresented = false; workspace.isAccountPresented = false; workspace.select(section) } }) }
         .sheet(isPresented: Binding(get: { visibleSection == .home && fuel.isGsmPresented }, set: { fuel.isGsmPresented = $0 })) {
             MacGsmReportScreen(workspace: fuel, repository: container.gsmFuel, vehicles: container.vehicles, coordinator: coordinator, selectedDate: route.selectedDate,
@@ -136,16 +143,16 @@ struct MacWorkspaceView: View {
             persistSelection()
             if let date = MacRouteDate.date(restoredRouteDate) { route.selectedDate = date }
             route.workType = RouteWorkType(rawValue: restoredRouteType) ?? .pos
-            container.routes.synchronizeSession(); container.gsmFuel.synchronizeSession(); container.requests.synchronizeSession(); container.clients.synchronizeSession(); container.vehicles.synchronizeSession(); container.salary.synchronizeSession(); container.documents.synchronizeSession(); container.ftp.synchronizeSession(); container.synchronizeTeam(); container.synchronizeAssistant()
+            container.routes.synchronizeSession(); container.gsmFuel.synchronizeSession(); container.requests.synchronizeSession(); container.clients.synchronizeSession(); container.vehicles.synchronizeSession(); container.salary.synchronizeSession(); container.documents.synchronizeSession(); container.ftp.synchronizeSession(); container.synchronizeTeam(); container.synchronizeAssistant(); container.synchronizeAdminFeedback()
         }
         .onChange(of: coordinator.context) { _, _ in
-            container.routes.synchronizeSession(); container.gsmFuel.synchronizeSession(); container.requests.synchronizeSession(); container.clients.synchronizeSession(); container.vehicles.synchronizeSession(); container.salary.synchronizeSession(); container.documents.synchronizeSession(); container.ftp.synchronizeSession(); container.synchronizeTeam(); container.synchronizeAssistant()
-            assistant.reset(); equipment.reset(); employees.reset(); profile.reset(); documents.reset(); ftp.reset(); fuel.reset(); requests.reset(); coordination.reset(); timeReports.reset(); analytics.reset(); vehicles.reset(); salary.lock(access: container.salaryAccess, authenticator: container.salaryAuthenticator); salary.hidesAmounts = true
+            container.routes.synchronizeSession(); container.gsmFuel.synchronizeSession(); container.requests.synchronizeSession(); container.clients.synchronizeSession(); container.vehicles.synchronizeSession(); container.salary.synchronizeSession(); container.documents.synchronizeSession(); container.ftp.synchronizeSession(); container.synchronizeTeam(); container.synchronizeAssistant(); container.synchronizeAdminFeedback()
+            admin.lock(container: container); admin.reset(); feedback.reset(); assistant.reset(); equipment.reset(); employees.reset(); profile.reset(); documents.reset(); ftp.reset(); fuel.reset(); requests.reset(); coordination.reset(); timeReports.reset(); analytics.reset(); vehicles.reset(); salary.lock(access: container.salaryAccess, authenticator: container.salaryAuthenticator); salary.hidesAmounts = true
         }
         .onChange(of: route.selectedDate) { _, date in restoredRouteDate = MacRouteDate.key(date) }
         .onChange(of: route.workType) { _, type in restoredRouteType = type.rawValue }
         .onChange(of: coordinator.session?.user) { _, user in
-            workspace.reconcile(user: user)
+            container.admin.synchronizeSession(); workspace.reconcile(user: user)
             persistSelection()
         }
         .onChange(of: workspace.selectedSection) { old, new in
@@ -153,14 +160,16 @@ struct MacWorkspaceView: View {
             persistSelection()
         }
         .onChange(of: coordinator.protectedContentGeneration) { _, _ in
+            container.admin.synchronizeSession(); if !container.adminAccess.accepts(admin.grant) { admin.lock(container: container, cancelAuthentication: false) }
             if !container.salaryAccess.accepts(salary.grant) {
                 salary.lock(access: container.salaryAccess, authenticator: container.salaryAuthenticator, cancelAuthentication: false)
             }
         }
         .onChange(of: coordinator.protectedAuthenticationGeneration) { _, _ in
+            admin.lock(container: container)
             salary.lock(access: container.salaryAccess, authenticator: container.salaryAuthenticator)
         }
-        .onDisappear { assistant.reset(); salary.isPresented = false; salary.lock(access: container.salaryAccess, authenticator: container.salaryAuthenticator) }
+        .onDisappear { feedback.release(container: container); assistant.reset(); salary.isPresented = false; salary.lock(access: container.salaryAccess, authenticator: container.salaryAuthenticator) }
     }
 
     private var hasDirtyClient: Bool { requests.hasDirtyClient || coordination.requests.hasDirtyClient || coordination.archive.hasDirtyClient }

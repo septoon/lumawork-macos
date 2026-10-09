@@ -6,6 +6,22 @@ final class WindowStateTests: XCTestCase {
     private let engineer = AppUser(id: "synthetic-A", email: "a@example.invalid", role: "engineer")
     private let admin = AppUser(id: "synthetic-A", email: "a@example.invalid", role: "admin", adminPermissions: ["users.view"])
 
+    func testDiscardAwaitsLocalPersistenceBeforeCheckingDraftAgain() async {
+        var dirty = true, decisions = 0
+        let entry = MacDraftRegistry.Entry(window: nil, hasDirty: { dirty }, save: {}, discard: {
+            await Task.yield(); dirty = false
+        }, discardOnly: { true })
+        let accepted = await MacDraftRegistry.resolve(entry, decision: { _ in
+            decisions += 1; return decisions == 1 ? .alertFirstButtonReturn : .alertSecondButtonReturn
+        }, failed: { _ in XCTFail("Discard must not fail") })
+        XCTAssertTrue(accepted); XCTAssertEqual(decisions, 1); XCTAssertFalse(dirty)
+    }
+    func testDiscardPersistenceFailureKeepsWindowOpen() async {
+        let entry = MacDraftRegistry.Entry(window: nil, hasDirty: { true }, save: {}, discard: { throw NSError(domain: "fixture", code: 1) }, discardOnly: { true })
+        var failed = false
+        let accepted = await MacDraftRegistry.resolve(entry, decision: { _ in .alertFirstButtonReturn }, failed: { _ in failed = true })
+        XCTAssertFalse(accepted); XCTAssertTrue(failed)
+    }
     func testTwoWindowsKeepIndependentSelection() {
         let a = MacWorkspaceState(); let b = MacWorkspaceState()
         a.reconcile(user: engineer); b.reconcile(user: engineer)

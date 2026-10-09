@@ -9,7 +9,7 @@ final class MacDraftRegistry {
         weak var window: NSWindow?
         let hasDirty: () -> Bool
         let save: () async throws -> Void
-        let discard: () -> Void
+        let discard: () async throws -> Void
         var discardOnly: () -> Bool = { false }
     }
     private var entries: [UUID: Entry] = [:]
@@ -33,12 +33,13 @@ final class MacDraftRegistry {
         while entry.hasDirty() {
             if entry.discardOnly() {
                 guard decision(true) == .alertFirstButtonReturn else { return false }
-                entry.discard(); continue
+                do { try await entry.discard() } catch { failed(error); return false }; continue
             }
             switch decision(false) {
             case .alertFirstButtonReturn:
                 do { try await entry.save() } catch { failed(error); return false }
-            case .alertSecondButtonReturn: entry.discard()
+            case .alertSecondButtonReturn:
+                do { try await entry.discard() } catch { failed(error); return false }
             default: return false
             }
         }
@@ -64,7 +65,7 @@ struct MacWindowDraftGuard: NSViewRepresentable {
     let id: UUID
     let hasDirty: () -> Bool
     let save: () async throws -> Void
-    let discard: () -> Void
+    let discard: () async throws -> Void
     var discardOnly: () -> Bool = { false }
     func makeCoordinator() -> Coordinator { Coordinator(id: id) }
     func makeNSView(context: Context) -> WindowReader {

@@ -104,6 +104,13 @@ final class MacSessionContainer {
         try? await equipmentPhotos.load(office ? "office" : "backpack", force: force) { [config] _ in try await EquipmentPhotoService(config: config).manifest(office: office) }
     }
 
+    lazy var adminAccess = ProtectedAccess(context: { [coordinator] in coordinator.context }, generation: { [coordinator] in coordinator.protectedContentGeneration })
+    lazy var admin = AdminRepository(access: adminAccess, session: { [coordinator] in coordinator.session }, context: { [coordinator] in coordinator.context }, usersAPI: AdminUsersAPI(config: config), overviewAPI: AdminOverviewAPI(config: config), feedbackAPI: { [config] in FeedbackAPI(config: config, token: $0.token) }, authFailure: { [coordinator] in coordinator.invalidateSession(message: "Сессия истекла. Войдите снова.") }, report: { [weak self] in self?.notices.show($0) })
+    lazy var feedback = FeedbackRepository(session: { [coordinator] in coordinator.session }, context: { [coordinator] in coordinator.context }, storage: { [weak self] in
+        guard let self else { throw SnapshotStorageError.missingIdentity }; return try self.snapshotStorage()
+    }, service: { [config] in FeedbackAPI(config: config, token: $0.token) }, authFailure: { [coordinator] in coordinator.invalidateSession(message: "Сессия истекла. Войдите снова.") }, report: { [weak self] in self?.notices.show($0) })
+    func synchronizeAdminFeedback() { admin.synchronizeSession(); feedback.synchronizeSession() }
+
     let notices = MacNoticeCenter()
     lazy var assistantTools = AssistantLocalToolExecutor(requests: requests, backpack: backpack, context: { [coordinator] in coordinator.context }, loadBackpack: { [weak self] in
         guard let self else { throw CancellationError() }

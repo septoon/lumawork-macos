@@ -1,0 +1,62 @@
+{
+  "message": {
+    "id": "fixture-report",
+    "number": "ОС-REPORT",
+    "kind": "ERROR",
+    "title": "Ошибка списка",
+    "message": "Описание ошибки в списке заявок.",
+    "areaCodes": [
+      "requests"
+    ],
+    "impact": "MINOR",
+    "frequency": "ONCE",
+    "status": "NEW",
+    "priority": "NORMAL",
+    "reporterEmail": "fixture@example.invalid",
+    "createdAt": "2026-10-09T10:00:00.123Z",
+    "updatedAt": "2026-10-09T10:00:00Z",
+    "emailStatus": "PENDING",
+    "attachments": [],
+    "additions": []
+  },
+  "users": [
+    {
+      "id": "fixture-user",
+      "email": "fixture@example.invalid",
+      "role": "admin",
+      "adminPermissions": [
+        "users.view",
+        "unknown.permission"
+      ],
+      "isProtectedAdmin": false,
+      "isBlocked": false,
+      "appVersion": "0.1.0",
+      "appBuild": "1"
+    }
+  ],
+  "overview": {
+    "system": {
+      "service": "fixture-api",
+      "status": "ok",
+      "uptimeSeconds": 125
+    },
+    "stats": {
+      "users": 3,
+      "admins": 1
+    },
+    "storage": {
+      "imageFiles": 2,
+      "bytes": 2048
+    },
+    "recentActions": [
+      {
+        "id": "fixture-audit",
+        "actorEmail": "admin@example.invalid",
+        "action": "users.block",
+        "targetType": "user",
+        "targetId": "fixture-user",
+        "createdAt": "2026-10-09T10:00:00Z"
+      }
+    ]
+  }
+}

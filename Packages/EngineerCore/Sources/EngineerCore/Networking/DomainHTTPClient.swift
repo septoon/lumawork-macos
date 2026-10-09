@@ -5,11 +5,11 @@ struct DomainHTTPClient {
     let config: AppConfig
     let token: String
     private let client: HTTPClient
-    init(config: AppConfig, token: String) {
+    init(config: AppConfig, token: String, httpClient: HTTPClient? = nil) {
         self.config = config; self.token = token
         let configuration = URLSessionConfiguration.ephemeral
         configuration.urlCache = nil; configuration.httpCookieStorage = nil; configuration.httpShouldSetCookies = false
-        client = HTTPClient(session: URLSession(configuration: configuration))
+        client = httpClient ?? HTTPClient(session: URLSession(configuration: configuration))
     }
     func request(_ path: String, method: String = "GET", body: Any? = nil, timeout: TimeInterval = 20, query: [URLQueryItem] = []) async throws -> Any? {
         guard !token.isEmpty else { throw GsmFuelError.unauthorized }
