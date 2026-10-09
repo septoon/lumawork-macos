@@ -9,6 +9,13 @@ final class MacSessionContainer {
     private var lifecycle: MacLifecycle?
     private var startup: Task<Void, Never>?
     private var snapshots: ScopedSnapshotStorage?
+    lazy var requests = RequestsRepository(session: { [coordinator] in coordinator.simpleOneSession },
+                                           context: { [coordinator] in coordinator.context },
+                                           storage: { [weak self] in
+                                               guard let self else { throw SimpleOneServiceError.missingCredentials }
+                                               return try self.snapshotStorage()
+                                           }, service: { [config] in SimpleOneRequestsService(config: config) },
+                                           authFailure: { [coordinator] in coordinator.disconnectSimpleOne() })
     lazy var routes = RouteDayRepository(session: { [coordinator] in coordinator.session },
                                          context: { [coordinator] in coordinator.context },
                                          storage: { [weak self] in

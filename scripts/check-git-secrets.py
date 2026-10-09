@@ -19,7 +19,7 @@ def forbidden_path(path, *, allow_markdown=False):
         or any(p.lower() in {"secrets", "localdata", "snapshots", "xcuserdata"} for p in parts)
         or name == ".env" or name.startswith(".env.")
         or name.startswith("secrets") and name.endswith(".xcconfig")
-        or name.endswith((".local.xcconfig", ".pem", ".key", ".p8", ".p12", ".pfx", ".keystore", ".jks", ".mobileprovision", ".provisionprofile", ".sqlite", ".db"))
+        or name.endswith((".local.xcconfig", ".local.plist", ".pem", ".key", ".p8", ".p12", ".pfx", ".keystore", ".jks", ".mobileprovision", ".provisionprofile", ".sqlite", ".db"))
         or name.startswith(("credentials", "session")) and name.endswith(".json")
     )
 

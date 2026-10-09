@@ -8,6 +8,7 @@ struct MacWorkspaceView: View {
     @State private var workspace = MacWorkspaceState()
     @State private var route = MacRouteWorkspace()
     @State private var fuel = MacFuelWorkspace()
+    @State private var requests = MacRequestsWorkspace()
     @SceneStorage("EngineerMac.route.date") private var restoredRouteDate = ""
     @SceneStorage("EngineerMac.route.type") private var restoredRouteType = RouteWorkType.pos.rawValue
     @State private var columnVisibility = NavigationSplitViewVisibility.all
@@ -64,6 +65,9 @@ struct MacWorkspaceView: View {
                                       openArchivedDay: { record in requestRouteDay(date: MacRouteDate.date(record.date) ?? Date(), workType: record.workType) })
                     } else if visibleSection == .fuel {
                         MacFuelScreen(workspace: fuel, repository: container.gsmFuel, routes: container.routes, coordinator: coordinator, archiveOwnerEmail: container.config.fuelArchiveOwnerEmail)
+                    } else if visibleSection == .requests {
+                        MacRequestsScreen(workspace: requests, repository: container.requests, coordinator: coordinator, config: container.config,
+                                          openAccount: { workspace.isAccountPresented = true })
                     } else {
                         ContentUnavailableView(visibleSection.title, systemImage: visibleSection.systemImage.replacingOccurrences(of: ".fill", with: ""), description: Text("Раздел пока недоступен."))
                     }
@@ -99,9 +103,12 @@ struct MacWorkspaceView: View {
             persistSelection()
             if let date = MacRouteDate.date(restoredRouteDate) { route.selectedDate = date }
             route.workType = RouteWorkType(rawValue: restoredRouteType) ?? .pos
-            container.routes.synchronizeSession(); container.gsmFuel.synchronizeSession()
+            container.routes.synchronizeSession(); container.gsmFuel.synchronizeSession(); container.requests.synchronizeSession()
         }
-        .onChange(of: coordinator.context) { _, _ in container.routes.synchronizeSession(); container.gsmFuel.synchronizeSession(); fuel.reset() }
+        .onChange(of: coordinator.context) { _, _ in
+            container.routes.synchronizeSession(); container.gsmFuel.synchronizeSession(); container.requests.synchronizeSession()
+            fuel.reset(); requests.reset()
+        }
         .onChange(of: route.selectedDate) { _, date in restoredRouteDate = MacRouteDate.key(date) }
         .onChange(of: route.workType) { _, type in restoredRouteType = type.rawValue }
         .onChange(of: coordinator.session?.user) { _, user in

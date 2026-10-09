@@ -38,12 +38,29 @@ struct MacSettingsView: View {
                 LabeledContent("Сервер", value: config.lumaWorkAPIOrigin ?? "Не настроен")
                     .textSelection(.enabled)
             }
+            Section("Фильтры SimpleOne") {
+                ForEach(SimpleOneQueryConfiguration.fields, id: \.key) { field in
+                    MacSimpleOneQueryField(key: field.key, title: field.title)
+                }
+                Text("Идентификаторы сохраняются только на этом Mac. После изменения обновите заявки.")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
             Section("Приложение") {
                 LabeledContent("Версия", value: AppBuildIdentity.display)
             }
         }
         .formStyle(.grouped)
-        .frame(width: 480)
+        .frame(width: 600, height: 640)
         .environment(\.locale, Locale(identifier: "ru_RU"))
     }
+}
+
+private struct MacSimpleOneQueryField: View {
+    let title: String
+    @AppStorage private var value: String
+    init(key: String, title: String) {
+        self.title = title
+        _value = AppStorage(wrappedValue: SimpleOneQueryConfiguration().value(for: key), key)
+    }
+    var body: some View { TextField(title, text: $value).textFieldStyle(.roundedBorder) }
 }

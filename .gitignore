@@ -55,3 +55,6 @@ Screenshot*.png
 
 # Project notes and instructions stay local
 *.[mM][dD]
+
+# Private deployment query configuration
+*.local.plist
