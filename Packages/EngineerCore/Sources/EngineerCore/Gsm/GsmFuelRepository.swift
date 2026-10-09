@@ -13,6 +13,7 @@ public final class GsmFuelRepository {
     private let contextProvider: () -> SessionContext?
     private let storageProvider: () throws -> ScopedSnapshotStorage
     private let serviceFactory: (AppSession) -> any GsmFuelServing
+    private let importService: (AppSession) -> FuelImportService
     private let authFailure: () -> Void
     private var boundContext: SessionContext?
     private var vault = Vault()
@@ -26,8 +27,11 @@ public final class GsmFuelRepository {
     private var gsmFlight: Task<Void, Error>?
     private var fuelFlightID: UUID?
     private var gsmFlightID: UUID?
+    private var importPreviews: [String: [FuelImportPreviewItem]] = [:]
     private var loadedFuel = false
     private var loadedGsm = false
+    public private(set) var isPreviewingImport = false
+    public private(set) var requiresImportReview = false
     public private(set) var isLoadingFuel = false
     public private(set) var isLoadingGsm = false
     public private(set) var isMutating = false
@@ -42,8 +46,8 @@ public final class GsmFuelRepository {
     public var profile: GsmProfileLoadResult? { active ? vault.profile : nil }
     public var projects: [GsmProjectOption] { active ? vault.projects : [] }
     private var active: Bool { boundContext != nil && boundContext == contextProvider() && !requiresAuthentication }
-    public init(session: @escaping () -> AppSession?, context: @escaping () -> SessionContext?, storage: @escaping () throws -> ScopedSnapshotStorage, service: @escaping (AppSession) -> any GsmFuelServing, authFailure: @escaping () -> Void = {}) {
-        sessionProvider = session; contextProvider = context; storageProvider = storage; serviceFactory = service; self.authFailure = authFailure
+    public init(session: @escaping () -> AppSession?, context: @escaping () -> SessionContext?, storage: @escaping () throws -> ScopedSnapshotStorage, service: @escaping (AppSession) -> any GsmFuelServing, authFailure: @escaping () -> Void = {}, importService: @escaping (AppSession) -> FuelImportService = { FuelImportService(config: AppConfig(), token: $0.token) }) {
+        sessionProvider = session; contextProvider = context; storageProvider = storage; serviceFactory = service; self.authFailure = authFailure; self.importService = importService
     }
     public func synchronizeSession() {
         guard boundContext != contextProvider() else { return }
@@ -51,6 +55,7 @@ public final class GsmFuelRepository {
         fuelFlight = nil; gsmFlight = nil; hydration = nil; persistence = nil; persistenceID = nil
         fuelFlightID = nil; gsmFlightID = nil; vault = Vault(); hydrated = false
         loadedFuel = false; loadedGsm = false; isLoadingFuel = false; isLoadingGsm = false; isMutating = false
+        isPreviewingImport = false; requiresImportReview = false; importPreviews = [:]
         requiresAuthentication = false; fuelConnection = .cached; gsmConnection = .cached; fuelError = nil; gsmError = nil; cacheWarning = nil
         boundContext = contextProvider(); revision &+= 1; generation &+= 1
     }
@@ -225,6 +230,54 @@ public final class GsmFuelRepository {
         let (context, service) = try capture()
         do { let value = try await service.fetchStartOdometer(month: month); try check(context); return value }
         catch { if boundContext == context { handle(error) }; throw error }
+    }
+    public func previewImports(_ uploads: [FuelImportUpload], expectedContext: SessionContext) async throws -> [FuelImportPreviewItem] {
+        let (context, _) = try capture()
+        guard context == expectedContext, let session = sessionProvider() else { throw GsmFuelError.staleSession }
+        guard !isPreviewingImport, !isMutating else { throw GsmFuelError.busy }
+        isPreviewingImport = true
+        defer { if boundContext == context { isPreviewingImport = false } }
+        do {
+            let items = try await importService(session).preview(uploads); try check(context)
+            if importPreviews.count >= 20 { importPreviews = [:] }
+            importPreviews[FuelImportService.fingerprint(uploads)] = items
+            requiresImportReview = false; return items
+        }
+        catch { if boundContext == context, DomainHTTPClient.isUnauthorized(error) { handle(GsmFuelError.unauthorized) }; throw error }
+    }
+    public func commitImports(_ uploads: [FuelImportUpload], replacing ids: Set<String>, corrections: [FuelImportCorrection], expectedContext: SessionContext) async throws -> FuelImportCommitResponse {
+        let (context, service) = try capture()
+        guard context == expectedContext, let session = sessionProvider() else { throw GsmFuelError.staleSession }
+        guard !requiresImportReview, !isPreviewingImport else { throw AppServiceError.message("Повторите предпросмотр перед импортом.") }
+        let fingerprint = FuelImportService.fingerprint(uploads)
+        guard let preview = importPreviews[fingerprint] else { throw AppServiceError.message("Сначала выполните предпросмотр выбранных файлов.") }
+        let replaceable = Set(preview.filter { $0.status == .replaceable }.compactMap(\.existingImportId))
+        guard ids.isSubset(of: replaceable), Set(corrections.map(\.fileHash)).count == corrections.count,
+              corrections.allSatisfy({ correction in preview.contains { $0.fileHash == correction.fileHash && !$0.fileHash.isEmpty } }) else { throw GsmFuelError.invalidResponse }
+        try await hydrate(context); try check(context)
+        try beginMutation(); defer { finishMutation(context) }
+        let result: FuelImportCommitResponse
+        do { result = try await importService(session).commit(uploads, replacing: ids, corrections: corrections); try check(context) }
+        catch {
+            if boundContext == context {
+                requiresImportReview = DomainHTTPClient.isUncertain(error)
+                if requiresImportReview { importPreviews = [:] }
+                if DomainHTTPClient.isUnauthorized(error) { handle(GsmFuelError.unauthorized) }
+            }
+            throw error
+        }
+        importPreviews.removeValue(forKey: fingerprint)
+        requiresImportReview = true; loadedFuel = false
+        do {
+            let records = try await service.fetchFuel(); try check(context)
+            vault.records = records; loadedFuel = true; fuelConnection = .online; fuelError = nil
+            try await cacheAfterWrite(context)
+        } catch {
+            try check(context)
+            cacheWarning = "Импорт обработан сервером, но список топлива не обновлён. Обновите данные вручную."
+            handle(error)
+        }
+        return result
     }
     private func handle(_ error: Error) {
         if case GsmFuelError.unauthorized = error {

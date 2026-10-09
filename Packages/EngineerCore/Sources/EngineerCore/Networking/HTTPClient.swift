@@ -123,7 +123,8 @@ public struct HTTPClient {
         authToken: String? = nil,
         allowEmpty: Bool = true,
         headers: [String: String] = [:],
-        redactDiagnostics: Bool = false
+        redactDiagnostics: Bool = false,
+        timeout: TimeInterval = 20
     ) async throws -> HTTPResponse {
         var request = URLRequest(url: url)
         request.httpMethod = method
@@ -131,7 +132,7 @@ public struct HTTPClient {
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         request.setValue("no-cache", forHTTPHeaderField: "Cache-Control")
         request.setValue("no-cache", forHTTPHeaderField: "Pragma")
-        request.timeoutInterval = 20
+        request.timeoutInterval = timeout
         AppBuildIdentity.apply(to: &request)
         for (key, value) in headers { request.setValue(value, forHTTPHeaderField: key) }
 

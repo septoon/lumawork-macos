@@ -1,6 +1,6 @@
 import Foundation
 
-public enum SalaryPaymentKind: String, CaseIterable, Codable, Hashable {
+public enum SalaryPaymentKind: String, CaseIterable, Codable, Hashable, Sendable {
     case advance
     case salary
     case weekend

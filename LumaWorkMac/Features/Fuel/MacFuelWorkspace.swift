@@ -7,13 +7,14 @@ final class MacFuelWorkspace {
     var selection: String?
     var search = ""
     var showsArchive = false
+    var imports: MacFuelImport?
     var editor: MacFuelEditorModel?
     var profileEditor: MacGsmEditorModel?
     var isGsmPresented = false
     var error: String?
     var notice: String?
-    var hasDirty: Bool { editor?.isDirty == true || profileEditor?.isDirty == true }
-    func discardEditors() { editor = nil; profileEditor = nil }
+    var hasDirty: Bool { editor?.isDirty == true || profileEditor?.isDirty == true || imports?.hasDirty == true }
+    func discardEditors() { editor = nil; profileEditor = nil; imports?.reset(); imports = nil }
     func reset() { discardEditors(); selection = nil; search = ""; showsArchive = false; isGsmPresented = false; error = nil; notice = nil }
 }
 @MainActor @Observable
@@ -50,11 +51,11 @@ final class MacGsmEditorModel: Identifiable {
     }
     var isDirty: Bool { draft != base || fuelNorm != initialNorm || startOdometer != initialOdometer }
     var canEditInitialOdometer: Bool { base == .empty }
-    var canEditVehicleFields: Bool { base.vehicleID == nil }
+    var canEditVehicleFields: Bool { draft.vehicleID == nil }
     func record() throws -> GsmProfile {
         guard let norm = Double(fuelNorm.replacingOccurrences(of: ",", with: ".")), let odometer = canEditInitialOdometer ? Int(startOdometer) : base.defaultStartOdometer else { throw AppServiceError.message("Укажите корректные норму и одометр.") }
         var value = draft; value.fuelNorm = norm; value.defaultStartOdometer = odometer
-        if !canEditVehicleFields { value.carModel = base.carModel; value.licensePlate = base.licensePlate }
+        if base.vehicleID != nil, draft.vehicleID == base.vehicleID { value.carModel = base.carModel; value.licensePlate = base.licensePlate }
         _ = try GsmWire.profilePayload(value); return value
     }
 }

@@ -1,0 +1,156 @@
+{
+  "synthetic": true,
+  "vehicles": {
+    "vehicles": [
+      {
+        "id": "vehicle-fixture-1",
+        "make": "Fixture",
+        "model": "One",
+        "licensePlate": "А000АА 00",
+        "year": 2020,
+        "isPrimary": true,
+        "imageStatus": "pending",
+        "documents": [],
+        "gsmSettings": {
+          "fuelNorm": 9.4,
+          "fuelType": "АИ-95",
+          "defaultStartOdometer": 100,
+          "reportStartMonth": "2026-04"
+        }
+      },
+      {
+        "id": "vehicle-fixture-2",
+        "customName": "Fixture Two",
+        "isPrimary": false,
+        "imageStatus": "none",
+        "documents": []
+      }
+    ]
+  },
+  "maintenance": {
+    "records": [
+      {
+        "id": "maintenance-fixture-1",
+        "vehicleId": "vehicle-fixture-1",
+        "date": "2026-05-12",
+        "procedure": "Тестовая замена",
+        "mileage": 100,
+        "parts": [
+          {
+            "name": "Тестовая деталь",
+            "cost": 100.5
+          }
+        ],
+        "workCost": 49.5,
+        "totalCost": 150
+      },
+      {
+        "id": "maintenance-fixture-legacy",
+        "vehicleId": null,
+        "date": "2026-05-11",
+        "procedure": "Тестовая старая запись",
+        "mileage": 0,
+        "parts": [],
+        "partsCost": 30,
+        "workCost": null,
+        "totalCost": 30
+      }
+    ]
+  },
+  "salary": {
+    "records": [
+      {
+        "id": "salary-fixture-legacy",
+        "date": "2026-05-12",
+        "baseSalary": 100,
+        "weekendPay": 10,
+        "periodMonth": null,
+        "amount": null,
+        "kind": null,
+        "comment": "Синтетическая запись"
+      },
+      {
+        "id": "salary-fixture-net",
+        "date": "2026-05-13",
+        "baseSalary": 0,
+        "weekendPay": 0,
+        "periodMonth": null,
+        "amount": 7000,
+        "kind": "ADVANCE"
+      },
+      {
+        "id": "salary-fixture-previous",
+        "date": "2026-06-05",
+        "baseSalary": 0,
+        "weekendPay": 0,
+        "periodMonth": null,
+        "amount": 5000,
+        "kind": null
+      }
+    ]
+  },
+  "expected": {
+    "legacyPayout": 96,
+    "netPayout": 7000,
+    "juneFifthAccrualMonth": "2026-05",
+    "juneFifthKind": "salary",
+    "mayTotal": 12096,
+    "unboundMaintenanceVisibleOnlyWithSingleVehicle": true
+  },
+  "fuelImportPreview": {
+    "items": [
+      {
+        "id": "fixture-import",
+        "fileName": "synthetic-report.xlsx",
+        "fileHash": "0000000000000000000000000000000000000000000000000000000000000000",
+        "status": "replaceable",
+        "period": "2026-06",
+        "entries": [
+          {
+            "row": 4,
+            "date": "2026-06-01",
+            "fuelType": "АИ-95",
+            "liters": 10,
+            "cost": 760
+          }
+        ],
+        "totalsByFuelType": [
+          {
+            "fuelType": "АИ-95",
+            "liters": 10,
+            "cost": 760
+          }
+        ],
+        "totalLiters": 10,
+        "totalCost": 760,
+        "mileage": 100,
+        "carModel": "Fixture One",
+        "fuelNorm": 9.4,
+        "worksheets": [
+          "Тестовый лист"
+        ],
+        "reportFormatVersion": 2,
+        "importerVersion": "fixture",
+        "warnings": [],
+        "errors": [],
+        "existingImportId": "fixture-previous-import"
+      }
+    ]
+  },
+  "fuelImportCommit": {
+    "importedMonths": 1,
+    "skippedMonths": 0,
+    "importedRefuels": 1,
+    "totalLiters": 10,
+    "totalCost": 760,
+    "results": [
+      {
+        "fileName": "synthetic-report.xlsx",
+        "period": "2026-06",
+        "status": "imported",
+        "message": "Тестовый результат",
+        "refuelCount": 1
+      }
+    ]
+  }
+}

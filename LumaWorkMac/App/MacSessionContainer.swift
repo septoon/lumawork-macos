@@ -31,7 +31,8 @@ final class MacSessionContainer {
                                              guard let self else { throw GsmFuelError.staleSession }
                                              return try self.snapshotStorage()
                                          }, service: { [config] in GsmFuelService(config: config, authToken: $0.token) },
-                                         authFailure: { [coordinator] in coordinator.invalidateSession(message: "Сессия истекла. Войдите снова.") })
+                                         authFailure: { [coordinator] in coordinator.invalidateSession(message: "Сессия истекла. Войдите снова.") },
+                                         importService: { [config] in FuelImportService(config: config, token: $0.token) })
 
     lazy var clients = ClientDetailsRepository(session: { [coordinator] in coordinator.session },
                                                 context: { [coordinator] in coordinator.context },
@@ -40,6 +41,15 @@ final class MacSessionContainer {
                                                     return try self.snapshotStorage()
                                                 }, service: { [config] in ClientDetailsService(config: config, token: $0.token) },
                                                 authFailure: { [coordinator] in coordinator.invalidateSession(message: "Сессия истекла. Войдите снова.") })
+
+    lazy var vehicles = VehicleMaintenanceRepository(session: { [coordinator] in coordinator.session }, context: { [coordinator] in coordinator.context }, storage: { [weak self] in
+        guard let self else { throw SnapshotStorageError.missingIdentity }; return try self.snapshotStorage()
+    }, service: { [config] in VehicleMaintenanceService(config: config, token: $0.token) }, authFailure: { [coordinator] in coordinator.invalidateSession(message: "Сессия истекла. Войдите снова.") })
+    lazy var salaryAccess = SalaryAccess(context: { [coordinator] in coordinator.context }, generation: { [coordinator] in coordinator.protectedContentGeneration })
+    lazy var salaryAuthenticator = MacSalaryAuthenticator(keychain: keychain, config: config, coordinator: coordinator)
+    lazy var salary = SalaryRepository(session: { [coordinator] in coordinator.session }, context: { [coordinator] in coordinator.context }, storage: { [weak self] in
+        guard let self else { throw SnapshotStorageError.missingIdentity }; return try self.snapshotStorage()
+    }, service: { [config] in SalaryService(config: config, token: $0.token) }, access: salaryAccess, authFailure: { [coordinator] in coordinator.invalidateSession(message: "Сессия истекла. Войдите снова.") })
 
     init(config: AppConfig = AppConfig()) {
         self.config = config

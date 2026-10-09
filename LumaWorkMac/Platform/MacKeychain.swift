@@ -58,6 +58,9 @@ final class MacKeychain: SessionCredentialStorage {
         return bytes
     }
 
+    func salaryPINData(userID: String) throws -> Data? { try readData(account: "salary-pin." + Self.digest(userID)) }
+    func writeSalaryPINData(_ data: Data, userID: String) throws { try writeData(data, account: "salary-pin." + Self.digest(userID)) }
+
     private func query(account: String) -> [String: Any] {
         // Native macOS login Keychain: default local ACL; no iOS accessibility/access group.
         [kSecClass as String: kSecClassGenericPassword,

@@ -4,6 +4,7 @@ import EngineerCore
 struct MacFuelScreen: View {
     @Bindable var workspace: MacFuelWorkspace
     let repository: GsmFuelRepository
+    let vehicles: VehicleMaintenanceRepository
     let routes: RouteDayRepository
     let coordinator: EngineerApplicationCoordinator
     let archiveOwnerEmail: String?
@@ -61,6 +62,7 @@ struct MacFuelScreen: View {
             }
             if let notice = workspace.notice { Text(notice).frame(maxWidth: .infinity, alignment: .leading).padding([.horizontal, .bottom], 12) }
         }
+        .sheet(item: $workspace.imports) { model in MacFuelImportScreen(model: model, repository: repository, coordinator: coordinator) { workspace.imports = nil } }
         .sheet(item: $workspace.editor) { model in
             MacFuelEditor(model: model, repository: repository, coordinator: coordinator, fuelTypes: repository.profile?.profile.fuelTypes ?? []) { saved in
                 workspace.editor = nil
@@ -68,7 +70,7 @@ struct MacFuelScreen: View {
             }
         }
         .sheet(isPresented: $workspace.isGsmPresented) {
-            MacGsmReportScreen(workspace: workspace, repository: repository, coordinator: coordinator, selectedDate: workspace.selectedDate)
+            MacGsmReportScreen(workspace: workspace, repository: repository, vehicles: vehicles, coordinator: coordinator, selectedDate: workspace.selectedDate)
         }
         .confirmationDialog("Удалить выбранную запись топлива?", isPresented: Binding(get: { pendingDelete != nil }, set: { if !$0 { pendingDelete = nil } })) {
             Button("Удалить", role: .destructive) { if let record = pendingDelete { remove(record) }; pendingDelete = nil }
@@ -90,6 +92,7 @@ struct MacFuelScreen: View {
             Spacer()
             if repository.isLoadingFuel || isSynchronizing { ProgressView().controlSize(.small) }
             Button("Добавить") { edit(nil) }.disabled(repository.isMutating)
+            Button("Импорт XLSX…") { if let context = coordinator.context { workspace.imports = MacFuelImport(context: context) } }.disabled(repository.isMutating)
             Menu("ГСМ") {
                 Button("Отчёт и профиль…") { workspace.isGsmPresented = true }
                 Button("Пробег из маршрутов…") { confirmsMileage = true }.disabled(repository.isMutating || isSynchronizing)

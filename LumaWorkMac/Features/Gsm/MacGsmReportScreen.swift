@@ -4,6 +4,7 @@ import EngineerCore
 struct MacGsmReportScreen: View {
     @Bindable var workspace: MacFuelWorkspace
     let repository: GsmFuelRepository
+    let vehicles: VehicleMaintenanceRepository
     let coordinator: EngineerApplicationCoordinator
     @State var selectedDate: Date
     var applyOdometer: ((String, Int) -> Void)?
@@ -57,7 +58,7 @@ struct MacGsmReportScreen: View {
             Button("Сформировать и отправить") { send() }
         } message: { Text("Письмо будет отправлено на \(coordinator.session?.user.email ?? "почту аккаунта").") }
         .sheet(item: $workspace.profileEditor) { model in
-            MacGsmProfileEditor(model: model, repository: repository, coordinator: coordinator) { saved in
+            MacGsmProfileEditor(model: model, repository: repository, vehicles: vehicles, coordinator: coordinator) { saved in
                 workspace.profileEditor = nil; if saved { notice = "Профиль ГСМ сохранён." }
             }
         }

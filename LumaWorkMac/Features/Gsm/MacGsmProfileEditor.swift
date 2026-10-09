@@ -4,9 +4,11 @@ import EngineerCore
 struct MacGsmProfileEditor: View {
     @Bindable var model: MacGsmEditorModel
     let repository: GsmFuelRepository
+    let vehicles: VehicleMaintenanceRepository
     let coordinator: EngineerApplicationCoordinator
     let finished: (Bool) -> Void
     @State private var confirmsCancel = false
+    @State private var pendingVehicle: Vehicle?
     private var validation: String? { do { _ = try model.record(); return nil } catch { return error.localizedDescription } }
     var body: some View {
         VStack(spacing: 0) {
@@ -25,7 +27,12 @@ struct MacGsmProfileEditor: View {
                     LabeledContent("Код бюджета", value: model.draft.budgetCode)
                 }
                 Section("Автомобиль и топливо") {
-                    if model.draft.vehicleID != nil { Text("Привязка к выбранному автомобилю сохранена.").foregroundStyle(.secondary).font(.caption) }
+                    Menu("Автомобиль для ГСМ-отчёта") {
+                        ForEach(vehicles.vehicles) { vehicle in Button(vehicle.displayName) { pendingVehicle = vehicle } }
+                    }.disabled(vehicles.vehicles.isEmpty || vehicles.isLoading)
+                    if vehicles.isLoading { ProgressView().controlSize(.small) }
+                    if let error = vehicles.error { Text(error).font(.caption).foregroundStyle(.red) }
+                    Text("Выбор и основной автомобиль в разделе «Авто» не меняют рабочий автомобиль ГСМ автоматически.").foregroundStyle(.secondary).font(.caption)
                     field("Модель", \.carModel).disabled(!model.canEditVehicleFields); field("Госномер", \.licensePlate).disabled(!model.canEditVehicleFields)
                     field("Водительское удостоверение", \.driverLicenseNumber); field("Топливная карта", \.fuelCardNumber)
                     TextField("Норма, л/100 км", text: $model.fuelNorm)
@@ -49,6 +56,20 @@ struct MacGsmProfileEditor: View {
             }.padding(16).disabled(model.isSaving)
         }
         .frame(width: 650, height: 680).interactiveDismissDisabled(model.isDirty || model.isSaving)
+        .task { try? await vehicles.load() }
+        .confirmationDialog("Изменить автомобиль для ГСМ-отчёта?", isPresented: Binding(get: { pendingVehicle != nil }, set: { if !$0 { pendingVehicle = nil } })) {
+            Button("Применить к черновику") {
+                if let vehicle = pendingVehicle {
+                    model.draft.vehicleID = vehicle.id; model.draft.carModel = vehicle.modelLine; model.draft.licensePlate = vehicle.licensePlate ?? ""
+                    if let settings = vehicle.gsmSettings {
+                        model.draft.fuelNorm = settings.fuelNorm; model.fuelNorm = String(settings.fuelNorm)
+                        if model.draft.fuelTypes.isEmpty, !settings.fuelType.isEmpty { model.draft.fuelTypes = [settings.fuelType]; model.draft.fuelType = settings.fuelType }
+                        model.draft.reportStartMonth = settings.reportStartMonth
+                    }
+                }
+                pendingVehicle = nil
+            }
+        } message: { Text("Выбор будет отправлен вместе с профилем после нажатия «Сохранить на сервере».") }
         .confirmationDialog("Отменить изменения профиля?", isPresented: $confirmsCancel) { Button("Не сохранять", role: .destructive) { finished(false) } }
     }
     private func field(_ label: String, _ key: WritableKeyPath<GsmProfile, String>) -> some View { TextField(label, text: Binding(get: { model.draft[keyPath: key] }, set: { model.draft[keyPath: key] = $0 })) }
