@@ -3,6 +3,7 @@ import EngineerCore
 
 @MainActor @Observable
 final class MacVehiclesWorkspace {
+    var documents = MacDocumentsWorkspace()
     var selection: String?
     var maintenanceSelection: String?
     var search = ""
@@ -10,8 +11,8 @@ final class MacVehiclesWorkspace {
     var maintenanceEditor: MacMaintenanceEditorModel?
     var error: String?
     var notice: String?
-    var hasDirty: Bool { vehicleEditor?.isDirty == true || maintenanceEditor?.isDirty == true }
-    func discardEditors() { vehicleEditor = nil; maintenanceEditor = nil }
+    var hasDirty: Bool { documents.hasDirty || vehicleEditor?.isDirty == true || maintenanceEditor?.isDirty == true }
+    func discardEditors() { documents.reset(); vehicleEditor = nil; maintenanceEditor = nil }
     func reset() { discardEditors(); selection = nil; maintenanceSelection = nil; search = ""; error = nil; notice = nil }
 }
 @MainActor @Observable

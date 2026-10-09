@@ -47,7 +47,7 @@ final class MacDraftRegistry {
     private static func prompt(discardOnly: Bool) -> NSApplication.ModalResponse {
         let alert = NSAlert()
         if discardOnly {
-            alert.messageText = "Отменить изменения топлива или профиля?"
+            alert.messageText = "Отменить несохранённые изменения?"
             alert.informativeText = "Несохранённые изменения будут потеряны. Закрытие окна не отправляет данные на сервер."
             alert.addButton(withTitle: "Не сохранять"); alert.addButton(withTitle: "Продолжить редактирование")
         } else {

@@ -6,6 +6,7 @@ import EngineerCore
 @MainActor @Observable
 final class MacSalaryWorkspace {
     enum Mode { case unlock, setup, recovery, code }
+    var documents = MacDocumentsWorkspace()
     var grant: SalaryAccessGrant?
     var editor: MacSalaryEditorModel?
     var month: String?
@@ -23,10 +24,10 @@ final class MacSalaryWorkspace {
     private var operation: UUID?
     private var systemContext: LAContext?
     private var recoveryProof: MacSalaryRecoveryProof?
-    var hasDirty: Bool { editor?.isDirty == true }
-    func discardEditor() { editor = nil }
+    var hasDirty: Bool { documents.hasDirty || editor?.isDirty == true }
+    func discardEditor() { documents.reset(); editor = nil }
     func lock(access: SalaryAccess, authenticator: MacSalaryAuthenticator, cancelAuthentication: Bool = true) {
-        access.revoke(grant); grant = nil; editor = nil; month = nil; selection = nil; pin = ""; confirmation = ""; code = ""; notice = nil; error = nil
+        documents.reset(); access.revoke(grant); grant = nil; editor = nil; month = nil; selection = nil; pin = ""; confirmation = ""; code = ""; notice = nil; error = nil
         if cancelAuthentication { operation = nil; systemContext?.invalidate(); systemContext = nil; busy = false; authenticator.discard(recoveryProof); recoveryProof = nil; mode = .unlock }
     }
     func prepare(authenticator: MacSalaryAuthenticator, coordinator: EngineerApplicationCoordinator) {

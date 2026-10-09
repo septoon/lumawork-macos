@@ -1,0 +1,114 @@
+{
+  "syntheticOnly": true,
+  "documents": {
+    "work": {
+      "documents": [
+        {
+          "id": "11111111-1111-4111-8111-111111111111",
+          "category": "INSTRUCTION",
+          "title": "Инструкция",
+          "fileName": "instruction.pdf",
+          "mimeType": "application/pdf",
+          "sizeBytes": 12,
+          "createdAt": "2026-10-09T00:00:00Z",
+          "updatedAt": "2026-10-09T00:00:00Z"
+        }
+      ]
+    },
+    "salary": {
+      "documents": [
+        {
+          "id": "22222222-2222-4222-8222-222222222222",
+          "month": "2026-09",
+          "fileName": "slip.pdf",
+          "mimeType": "application/pdf",
+          "sizeBytes": 12,
+          "createdAt": "2026-10-09T00:00:00Z",
+          "updatedAt": "2026-10-09T00:00:00Z"
+        }
+      ]
+    },
+    "vehicle": {
+      "vehicles": [
+        {
+          "id": "33333333-3333-4333-8333-333333333333",
+          "documents": [
+            {
+              "id": "44444444-4444-4444-8444-444444444444",
+              "kind": "STS",
+              "fileName": "sts.pdf",
+              "mimeType": "application/pdf",
+              "sizeBytes": 12,
+              "createdAt": "2026-10-09T00:00:00Z"
+            }
+          ]
+        }
+      ]
+    },
+    "chunk": {
+      "bytes": 524288,
+      "intermediate": {
+        "complete": false,
+        "received": 1,
+        "totalChunks": 2
+      },
+      "final": {
+        "complete": true,
+        "document": "metadata"
+      },
+      "salaryEnvelopeFields": [
+        "uploadId",
+        "fileName",
+        "mimeType",
+        "chunkIndex",
+        "totalChunks",
+        "chunkBase64"
+      ],
+      "workAdditionalFields": [
+        "documentId",
+        "category",
+        "title"
+      ],
+      "vehicleAdditionalFields": [
+        "documentId",
+        "kind"
+      ]
+    },
+    "maxBytes": 20971520,
+    "uncertainSendRequiresRefresh": true
+  },
+  "ftp": {
+    "path": "/Пример",
+    "items": [
+      {
+        "name": "Файл.txt",
+        "path": "/Пример/Файл.txt",
+        "type": "file",
+        "size": 12,
+        "sizeText": "12 B",
+        "modifiedAt": null
+      },
+      {
+        "name": "Папка",
+        "path": "/Пример/Папка",
+        "type": "directory",
+        "size": null,
+        "sizeText": null,
+        "modifiedAt": null
+      }
+    ],
+    "errors": [
+      {
+        "status": 404,
+        "error": "FTP_FILE_NOT_FOUND"
+      },
+      {
+        "status": 502,
+        "error": "FTP_DOWNLOAD_FAILED"
+      }
+    ],
+    "historyRemovalDeletesFile": false,
+    "reconcileCompletedFileBeforeRetry": true,
+    "resumeAfterAppExit": "explicit retry after directory check"
+  }
+}

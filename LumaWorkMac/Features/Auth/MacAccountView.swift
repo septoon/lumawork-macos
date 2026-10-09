@@ -3,6 +3,9 @@ import EngineerCore
 
 struct MacAccountView: View {
     let coordinator: EngineerApplicationCoordinator
+    let documents: DocumentsRepository
+    let documentsWorkspace: MacDocumentsWorkspace
+    @State private var showsDocuments = false
     let logout: () -> Void
     @Environment(\.dismiss) private var dismiss
 
@@ -22,6 +25,7 @@ struct MacAccountView: View {
                 }
                 Divider()
                 MacSimpleOneAuthView(coordinator: coordinator)
+                Button("Рабочие документы…") { showsDocuments = true }
                 Divider()
                 HStack {
                     Button("Проверить соединение") { Task { await coordinator.refreshSession() } }
@@ -34,5 +38,7 @@ struct MacAccountView: View {
         }
         .padding(20)
         .frame(width: 480, alignment: .leading)
+        .interactiveDismissDisabled(documentsWorkspace.hasDirty || documentsWorkspace.isBusy)
+        .sheet(isPresented: $showsDocuments) { MacDocumentsView(model: documentsWorkspace, collection: .work, repository: documents, coordinator: coordinator) }
     }
 }

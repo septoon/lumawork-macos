@@ -11,10 +11,13 @@ struct DomainHTTPClient {
         configuration.urlCache = nil; configuration.httpCookieStorage = nil; configuration.httpShouldSetCookies = false
         client = HTTPClient(session: URLSession(configuration: configuration))
     }
-    func request(_ path: String, method: String = "GET", body: Any? = nil, timeout: TimeInterval = 20) async throws -> Any? {
+    func request(_ path: String, method: String = "GET", body: Any? = nil, timeout: TimeInterval = 20, query: [URLQueryItem] = []) async throws -> Any? {
         guard !token.isEmpty else { throw GsmFuelError.unauthorized }
         let origin = try AppConfig.validatedURL(config.lumaWorkAPIOrigin)
-        return try await client.request(origin.appendingPathComponent(path.trimmingCharacters(in: CharacterSet(charactersIn: "/"))),
+        var parts = URLComponents(url: origin.appendingPathComponent(path.trimmingCharacters(in: CharacterSet(charactersIn: "/"))), resolvingAgainstBaseURL: false)
+        if !query.isEmpty { parts?.queryItems = query }
+        guard let url = parts?.url else { throw GsmFuelError.invalidResponse }
+        return try await client.request(url,
                                         method: method, body: body, authToken: token, redactDiagnostics: true, timeout: timeout).json
     }
     func decode<T: Decodable>(_ type: T.Type, json: Any?) throws -> T {

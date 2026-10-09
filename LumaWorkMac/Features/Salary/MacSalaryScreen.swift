@@ -6,6 +6,7 @@ private struct SalaryTableRow: Identifiable { let entry: SalaryEntry; var id: St
 struct MacSalaryScreen: View {
     @Bindable var workspace: MacSalaryWorkspace
     let repository: SalaryRepository
+    let documents: DocumentsRepository
     let access: SalaryAccess
     let authenticator: MacSalaryAuthenticator
     let coordinator: EngineerApplicationCoordinator
@@ -25,6 +26,7 @@ struct MacSalaryScreen: View {
             .onChange(of: months) { _, _ in reconcile() }
             .onChange(of: authorized) { _, value in if !value { pendingDelete = nil; workspace.discardEditor() } }
             .onDisappear { workspace.isPresented = false; workspace.lock(access: access, authenticator: authenticator) }
+            .sheet(isPresented: Binding(get: { workspace.documents.isPresented && authorized }, set: { workspace.documents.isPresented = $0 })) { if authorized { MacDocumentsView(model: workspace.documents, collection: .salary, repository: documents, coordinator: coordinator, grant: workspace.grant) } }
             .sheet(item: $workspace.editor) { model in
                 MacSalaryEditor(model: model, repository: repository, access: access, coordinator: coordinator) { saved in workspace.editor = nil; if let saved { workspace.month = saved.accrualMonthKey; workspace.selection = saved.stableID; workspace.notice = "Выплата сохранена." } }
             }
@@ -63,6 +65,7 @@ struct MacSalaryScreen: View {
                 Text("Выплаты").font(.headline)
                 Spacer()
                 Toggle("Скрывать суммы", isOn: $workspace.hidesAmounts).toggleStyle(.checkbox)
+                Button("Расчётные листки…") { workspace.documents.isPresented = true }
                 Button("Добавить…") { edit(nil) }.disabled(repository.isSaving || repository.requiresRefresh)
                 Button { if let grant = workspace.grant { Task { try? await repository.load(grant: grant, force: true) } } } label: { Image(systemName: "arrow.clockwise") }.help("Обновить зарплату").disabled(repository.isLoading || repository.isSaving)
                 Button { workspace.lock(access: access, authenticator: authenticator); workspace.prepare(authenticator: authenticator, coordinator: coordinator) } label: { Image(systemName: "lock") }.help("Закрыть доступ к зарплате")

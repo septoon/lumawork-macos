@@ -5,6 +5,7 @@ private struct MaintenanceTableRow: Identifiable { let record: MaintenanceRecord
 struct MacVehiclesScreen: View {
     @Bindable var workspace: MacVehiclesWorkspace
     let repository: VehicleMaintenanceRepository
+    let documents: DocumentsRepository
     let coordinator: EngineerApplicationCoordinator
     let profileChanged: () -> Void
     @State private var pendingDelete: MaintenanceRecord?
@@ -72,6 +73,7 @@ struct MacVehiclesScreen: View {
             if let error = workspace.error ?? repository.error ?? repository.cacheWarning { Text(error).foregroundStyle(.red).padding(10).frame(maxWidth: .infinity, alignment: .leading).textSelection(.enabled) }
             if let notice = workspace.notice { Text(notice).padding(10).frame(maxWidth: .infinity, alignment: .leading) }
         }
+        .sheet(isPresented: $workspace.documents.isPresented, onDismiss: { Task { try? await repository.load(force: true) } }) { if let selected { MacDocumentsView(model: workspace.documents, collection: .vehicle(selected.id), repository: documents, coordinator: coordinator) } }
         .sheet(item: $workspace.vehicleEditor) { model in MacVehicleEditor(model: model, repository: repository, coordinator: coordinator) { saved in workspace.vehicleEditor = nil; if let saved { workspace.selection = saved.id; profileChanged() } } }
         .sheet(item: $workspace.maintenanceEditor) { model in MacMaintenanceEditor(model: model, vehicles: repository.vehicles, repository: repository, coordinator: coordinator) { workspace.maintenanceEditor = nil } }
         .confirmationDialog("Удалить запись обслуживания с сервера?", isPresented: Binding(get: { pendingDelete != nil }, set: { if !$0 { pendingDelete = nil } })) {
@@ -94,7 +96,7 @@ struct MacVehiclesScreen: View {
     }
     private func vehicleInfo(_ vehicle: Vehicle) -> some View {
         VStack(alignment: .leading, spacing: 6) {
-            HStack { Text(vehicle.displayName).font(.title2); if vehicle.isPrimary { Text("Основной").font(.caption).foregroundStyle(.secondary) }; Spacer(); Button("Изменить авто…") { editVehicle(vehicle) }.disabled(repository.isSaving || repository.requiresRefresh) }
+            HStack { Text(vehicle.displayName).font(.title2); if vehicle.isPrimary { Text("Основной").font(.caption).foregroundStyle(.secondary) }; Spacer(); Button("Документы…") { workspace.documents.isPresented = true }; Button("Изменить авто…") { editVehicle(vehicle) }.disabled(repository.isSaving || repository.requiresRefresh) }
             Text([vehicle.modelLine, vehicle.year.map(String.init), vehicle.licensePlate, vehicle.colorName].compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: " · ")).foregroundStyle(.secondary)
             Grid(alignment: .leading, horizontalSpacing: 20, verticalSpacing: 5) {
                 GridRow { Text("VIN"); Text(vehicle.vin ?? "—"); Text("Пробег"); Text(vehicle.currentMileageKm.map { "\($0) км" } ?? "—") }

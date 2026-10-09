@@ -51,6 +51,13 @@ final class MacSessionContainer {
         guard let self else { throw SnapshotStorageError.missingIdentity }; return try self.snapshotStorage()
     }, service: { [config] in SalaryService(config: config, token: $0.token) }, access: salaryAccess, authFailure: { [coordinator] in coordinator.invalidateSession(message: "Сессия истекла. Войдите снова.") })
 
+    lazy var documents = DocumentsRepository(session: { [coordinator] in coordinator.session }, context: { [coordinator] in coordinator.context }, storage: { [weak self] in
+        guard let self else { throw SnapshotStorageError.missingIdentity }; return try self.snapshotStorage()
+    }, service: { [config] in DocumentService(config: config, token: $0.token) }, access: salaryAccess, authFailure: { [coordinator] in coordinator.invalidateSession(message: "Сессия истекла. Войдите снова.") })
+    lazy var ftp = FTPRepository(session: { [coordinator] in coordinator.session }, context: { [coordinator] in coordinator.context }, storage: { [weak self] in
+        guard let self else { throw SnapshotStorageError.missingIdentity }; return try self.snapshotStorage()
+    }, service: { [config] in FTPService(config: config, token: $0.token) }, filesRoot: URL.applicationSupportDirectory.appendingPathComponent("EngineerMac/FTP/" + keychain.snapshotNamespace, isDirectory: true), authFailure: { [coordinator] in coordinator.invalidateSession(message: "Сессия истекла. Войдите снова.") })
+
     init(config: AppConfig = AppConfig()) {
         self.config = config
         let keychain = MacKeychain(config: config)
@@ -61,6 +68,10 @@ final class MacSessionContainer {
 
     func start() {
         guard startup == nil else { return }
+        // Remove only our transient previews/downloads left by a previous terminated process.
+        for name in ["EngineerMac-DocumentPreviews", "EngineerMac-FileDownloads"] {
+            try? FileManager.default.removeItem(at: FileManager.default.temporaryDirectory.appendingPathComponent(name, isDirectory: true))
+        }
         lifecycle = MacLifecycle(coordinator: coordinator)
         startup = Task { [coordinator] in await coordinator.restore() }
     }
