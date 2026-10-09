@@ -58,3 +58,7 @@ Screenshot*.png
 
 # Private deployment query configuration
 *.local.plist
+
+# Local build and packaging scripts
+/scripts/
+/script/
