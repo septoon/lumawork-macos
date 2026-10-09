@@ -11,6 +11,7 @@ public enum RequestsScope: String, CaseIterable, Identifiable, Sendable {
 
 public struct SimpleOneQueryConfiguration: Sendable {
     public static let fields: [(key: String, title: String)] = [
+        ("SIMPLEONE_WRITE_OFF_DYNAMIC_ID", "Ответственные за списание (dynamic)"),
         ("SIMPLEONE_PRIMARY_ASSIGNMENT_GROUP_ID", "Основная рабочая группа"),
         ("SIMPLEONE_CURRENT_REGION_ASSIGNMENT_GROUP_ID", "Региональная рабочая группа"),
         ("SIMPLEONE_CURRENT_COMPANY_LOCATION_ID", "Расположение компании"),
@@ -37,7 +38,7 @@ public struct SimpleOneQueryConfiguration: Sendable {
         })
     }
     public func value(for key: String) -> String { values[key] ?? "" }
-    private func required(_ key: String) throws -> String {
+    func required(_ key: String) throws -> String {
         let value = value(for: key).trimmingCharacters(in: .whitespacesAndNewlines)
         guard !value.isEmpty, value.allSatisfy(\.isNumber) else {
             throw SimpleOneServiceError.server("Не настроены фильтры SimpleOne. Укажите идентификаторы в настройках приложения.")

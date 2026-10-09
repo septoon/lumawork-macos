@@ -58,6 +58,51 @@ final class MacSessionContainer {
         guard let self else { throw SnapshotStorageError.missingIdentity }; return try self.snapshotStorage()
     }, service: { [config] in FTPService(config: config, token: $0.token) }, filesRoot: URL.applicationSupportDirectory.appendingPathComponent("EngineerMac/FTP/" + keychain.snapshotNamespace, isDirectory: true), authFailure: { [coordinator] in coordinator.invalidateSession(message: "Сессия истекла. Войдите снова.") })
 
+    lazy var backpack: SimpleOneResourceRepository<[BackpackItem]> = resource("backpack.v1")
+    lazy var equipment: SimpleOneResourceRepository<[OfficeEquipmentItem]> = resource("equipment.v1")
+    lazy var locations: SimpleOneResourceRepository<[String: BackpackItemLocation]> = resource("backpack-locations.v1")
+    lazy var employeeCities: SimpleOneResourceRepository<[SimpleOneEmployeeAddress]> = resource("employee-cities.v1")
+    lazy var employeeDirectories: SimpleOneResourceRepository<EmployeeDirectory> = resource("employee-directory.v1")
+    lazy var employeeDetails: SimpleOneResourceRepository<SimpleOneEmployee> = resource("employee-detail.v1")
+    lazy var scheduleJournals: SimpleOneResourceRepository<[WorkScheduleJournal]> = resource("schedule-journals.v1")
+    lazy var schedules: SimpleOneResourceRepository<WorkSchedule> = resource("schedule.v1")
+    lazy var equipmentPhotos: SimpleOneResourceRepository<[EquipmentPhoto]> = resource("equipment-photos.v1")
+    lazy var images = MacRemoteImageStore(context: { [coordinator] in coordinator.context })
+    lazy var profile = ProfileRepository(config: config, session: { [coordinator] in coordinator.session }, context: { [coordinator] in coordinator.context }, storage: { [weak self] in
+        guard let self else { throw SnapshotStorageError.missingIdentity }; return try self.snapshotStorage()
+    }, applyUser: { [coordinator] user, context in try coordinator.applyUpdatedUser(user, expectedContext: context) }, authFailure: { [coordinator] in coordinator.invalidateSession(message: "Сессия истекла. Войдите снова.") })
+    private func resource<Value: Codable & Sendable>(_ namespace: String) -> SimpleOneResourceRepository<Value> {
+        SimpleOneResourceRepository(namespace: namespace, session: { [coordinator] in coordinator.simpleOneSession }, context: { [coordinator] in coordinator.context }, storage: { [weak self] in
+            guard let self else { throw SnapshotStorageError.missingIdentity }; return try self.snapshotStorage()
+        }, authFailure: { [coordinator] in coordinator.disconnectSimpleOne() })
+    }
+    func synchronizeTeam() {
+        backpack.synchronizeSession(); equipment.synchronizeSession(); locations.synchronizeSession(); employeeCities.synchronizeSession(); employeeDirectories.synchronizeSession(); employeeDetails.synchronizeSession(); scheduleJournals.synchronizeSession(); schedules.synchronizeSession(); equipmentPhotos.synchronizeSession(); profile.synchronizeSession(); images.synchronizeSession()
+    }
+    func loadEquipment(office: Bool, force: Bool = false) async {
+        // Photo refresh must run even when SimpleOne itself fails.
+        async let photos: Void = loadEquipmentPhotos(office: office, force: force)
+        do {
+            if office {
+                try await equipment.load("all", force: force) { [config] session in try await SimpleOneRequestsService(config: config).fetchCurrentOfficeEquipment(authKey: session.authKey) }
+            } else {
+                let cached = backpack.value("all") ?? []
+                try await backpack.load("all", force: force) { [config] session in
+                    let service = BackpackService(config: config), items = try await service.fetchItems(authKey: session.authKey)
+                    let collector = MacBackpackCollector(items)
+                    try await service.hydrateItems(items, cachedItems: cached, authKey: session.authKey) { collector.receive($0) }
+                    return collector.items
+                }
+                try await locations.loadLocal("saved")
+                try? await requests.load(.returnEquipment)
+            }
+        } catch { /* Repository preserves data and exposes the domain error. */ }
+        await photos
+    }
+    private func loadEquipmentPhotos(office: Bool, force: Bool) async {
+        try? await equipmentPhotos.load(office ? "office" : "backpack", force: force) { [config] _ in try await EquipmentPhotoService(config: config).manifest(office: office) }
+    }
+
     init(config: AppConfig = AppConfig()) {
         self.config = config
         let keychain = MacKeychain(config: config)
@@ -69,7 +114,7 @@ final class MacSessionContainer {
     func start() {
         guard startup == nil else { return }
         // Remove only our transient previews/downloads left by a previous terminated process.
-        for name in ["EngineerMac-DocumentPreviews", "EngineerMac-FileDownloads"] {
+        for name in ["EngineerMac-DocumentPreviews", "EngineerMac-FileDownloads", "EngineerMac-RemoteImages"] {
             try? FileManager.default.removeItem(at: FileManager.default.temporaryDirectory.appendingPathComponent(name, isDirectory: true))
         }
         lifecycle = MacLifecycle(coordinator: coordinator)

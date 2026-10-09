@@ -2,11 +2,14 @@ import SwiftUI
 import EngineerCore
 
 struct MacAccountView: View {
-    let coordinator: EngineerApplicationCoordinator
-    let documents: DocumentsRepository
+    let container: MacSessionContainer
+    let profile: MacProfileWorkspace
+    private var coordinator: EngineerApplicationCoordinator { container.coordinator }
+    private var documents: DocumentsRepository { container.documents }
     let documentsWorkspace: MacDocumentsWorkspace
     @State private var showsDocuments = false
     let logout: () -> Void
+    let navigate: (EngineerSection) -> Void
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
@@ -25,6 +28,7 @@ struct MacAccountView: View {
                 }
                 Divider()
                 MacSimpleOneAuthView(coordinator: coordinator)
+                Button("Профиль…") { profile.isPresented = true }
                 Button("Рабочие документы…") { showsDocuments = true }
                 Divider()
                 HStack {
@@ -38,7 +42,10 @@ struct MacAccountView: View {
         }
         .padding(20)
         .frame(width: 480, alignment: .leading)
-        .interactiveDismissDisabled(documentsWorkspace.hasDirty || documentsWorkspace.isBusy)
+        .interactiveDismissDisabled(documentsWorkspace.hasDirty || documentsWorkspace.isBusy || profile.hasDirty || profile.busy || container.profile.isSaving)
+        .sheet(isPresented: Binding(get: { profile.isPresented }, set: { profile.isPresented = $0 })) {
+            MacProfileView(model: profile, container: container, openDocuments: { Task { if await MacDraftRegistry.shared.confirm() { profile.isPresented = false; showsDocuments = true } } }, openFuel: { navigate(.fuel) }, openVehicles: { navigate(.maintenance) }, openAnalytics: { navigate(.analytics) })
+        }
         .sheet(isPresented: $showsDocuments) { MacDocumentsView(model: documentsWorkspace, collection: .work, repository: documents, coordinator: coordinator) }
     }
 }

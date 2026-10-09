@@ -1,0 +1,174 @@
+{
+  "syntheticOnly": true,
+  "equipment": {
+    "backpackCondition": "(quantity>0^(warehouse.responsible_for_write_offCONTAINS_DYNAMIC10002^ORactivity.service_managerDYNAMIC10001^ORactivity.balance_management_managersCONTAINS_DYNAMIC10002^ORactivity.project_managerDYNAMIC10001))",
+    "officeCondition": "(ownerDYNAMIC10001)",
+    "photoCandidateOrder": [
+      "alternativeName",
+      "name",
+      "vendor model",
+      "model"
+    ],
+    "receivedAtField": "sys_updated_at",
+    "locationRaw": [
+      "warehouse",
+      "car",
+      "home",
+      "absent"
+    ],
+    "configuredDynamicIDs": {
+      "current": "10001",
+      "writeOff": "10002"
+    },
+    "backpackList": {
+      "data": {
+        "total_count": 1,
+        "items": [
+          {
+            "sys_id": "50001",
+            "zip.name": {
+              "display_value": "Терминал Пример"
+            },
+            "zip.s_n": "EXAMPLE-001",
+            "quantity": "2",
+            "sys_updated_at": "2026-10-01 09:00:00"
+          }
+        ]
+      }
+    },
+    "officeList": {
+      "data": {
+        "items": [
+          {
+            "sys_id": "50002",
+            "name": "Ноутбук Пример",
+            "serial_number": "EXAMPLE-002",
+            "alternative_name": "Пример 100",
+            "sys_updated_at": "2026-10-01 10:00:00"
+          }
+        ]
+      }
+    },
+    "manifest": {
+      "version": 1,
+      "items": [
+        {
+          "id": "example",
+          "referenceName": "Пример 100",
+          "aliases": [
+            "Ноутбук Пример"
+          ],
+          "url": "/uploads/office-equipment/example.webp",
+          "revision": 1
+        }
+      ]
+    }
+  },
+  "employees": {
+    "citySearch": {
+      "condition": "(localityLIKEПример)",
+      "page": "1",
+      "per_page": "40"
+    },
+    "directory": {
+      "condition": "(c_tgr=10001^keywordsAREПример)",
+      "page": "1",
+      "per_page": "100"
+    },
+    "hiddenPasswordFieldsExcluded": true,
+    "listResponse": {
+      "data": {
+        "total_count": 1,
+        "items": [
+          {
+            "sys_id": "40001",
+            "first_name": "Пример",
+            "last_name": "Сотрудник",
+            "username": "example.user",
+            "email": "example@example.invalid",
+            "phone": "",
+            "c_tgr": {
+              "database_value": "10001",
+              "display_value": "Пример"
+            }
+          }
+        ]
+      }
+    }
+  },
+  "schedule": {
+    "journals": {
+      "data": {
+        "items": [
+          {
+            "sys_id": "20001",
+            "city": {
+              "database_value": "10001",
+              "display_value": "Пример"
+            },
+            "year": "2026",
+            "month": {
+              "database_value": "10",
+              "display_value": "Октябрь"
+            }
+          }
+        ]
+      }
+    },
+    "record": {
+      "data": {
+        "sections": [
+          {
+            "elements": [
+              {
+                "widget_instance_id": "30001",
+                "name": "График работы"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "widgetRequest": {
+      "recordID": "20001",
+      "action": "load"
+    },
+    "widgetResponse": {
+      "data": {
+        "daysInMonth": 31,
+        "scheduleData": {
+          "Сотрудник Пример (example.user)": {
+            "employeeSysId": "40001",
+            "1": {
+              "hoursWork": "8,5",
+              "isActive": true
+            },
+            "totalHours": 8.5
+          },
+          "Всего работающих": {}
+        }
+      }
+    }
+  },
+  "profile": {
+    "vCardDefault": "BEGIN:VCARD\nVERSION:3.0\nN:;;;;\nFN:Контакт\nEND:VCARD",
+    "fullProfilePutPreservesLegacyVehicleFields": true,
+    "avatarPostFields": [
+      "imageBase64",
+      "mimeType"
+    ],
+    "unknownWriteRequiresRefresh": true,
+    "preferencesScope": "origin and app user; equipment locations also SO user",
+    "completedWork": {
+      "terminalTypes": {
+        "portable_pos": "portable",
+        "universal_pos": "portable",
+        "stat_pos": "stationary",
+        "intel_pin": "integration",
+        "fiscal_pos": "fiscal"
+      },
+      "deduplicateBy": "requestNumber",
+      "requireCompletedWithVisit": true
+    }
+  }
+}

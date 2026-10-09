@@ -107,11 +107,15 @@ public struct SimpleOneRequestsService: SimpleOneRequestsServing {
     func request(path: String, authKey: String) async throws -> [String: Any] {
         try await request(url: baseURL.appendingPathComponent(path.trimmingCharacters(in: CharacterSet(charactersIn: "/"))), authKey: authKey)
     }
-    private func request(url: URL, authKey: String) async throws -> [String: Any] {
-        guard !baseURL.isFileURL else { throw SimpleOneServiceError.invalidURL }
+    func request(url: URL, method: String = "GET", body: [String: Any]? = nil, authKey: String) async throws -> [String: Any] {
+        try Task.checkCancellation()
+        guard !baseURL.isFileURL, !authKey.isEmpty else { throw SimpleOneServiceError.invalidURL }
         var request = URLRequest(url: url); request.timeoutInterval = 35; request.cachePolicy = .reloadIgnoringLocalCacheData; request.httpShouldHandleCookies = false
         request.setValue("application/json", forHTTPHeaderField: "Accept"); request.setValue("no-cache", forHTTPHeaderField: "Cache-Control"); request.setValue("auth=\(authKey)", forHTTPHeaderField: "Cookie")
+        request.httpMethod = method
+        if let body { request.httpBody = try JSONSerialization.data(withJSONObject: body); request.setValue("application/json", forHTTPHeaderField: "Content-Type") }
         let (data, response) = try await session.data(for: request)
+        try Task.checkCancellation()
         guard let response = response as? HTTPURLResponse else { throw SimpleOneServiceError.invalidResponse }
         // Log only the endpoint: list conditions contain user IDs and searches.
         NetworkDiagnostics.logResponse(url: URL(string: url.path, relativeTo: baseURL)?.absoluteURL ?? baseURL, statusCode: response.statusCode, data: data)
@@ -122,7 +126,7 @@ public struct SimpleOneRequestsService: SimpleOneRequestsServing {
         guard (200..<300).contains(response.statusCode) else { throw SimpleOneServiceError.server("SimpleOne вернул HTTP \(response.statusCode).") }
         return json
     }
-    private func listItems(_ response: [String: Any]) -> [[String: Any]]? {
+    func listItems(_ response: [String: Any]) -> [[String: Any]]? {
         let data = response["data"] as? [String: Any]
         for container in [data, response].compactMap({ $0 }) {
             for key in ["items", "list", "records"] { if let items = container[key] as? [[String: Any]] { return items } }
@@ -130,7 +134,7 @@ public struct SimpleOneRequestsService: SimpleOneRequestsServing {
         }
         return nil
     }
-    private func totalCount(_ response: [String: Any]) -> Int? {
+    func totalCount(_ response: [String: Any]) -> Int? {
         let data = response["data"] as? [String: Any]
         for container in [response, data, response["meta"] as? [String: Any], response["pagination"] as? [String: Any], data?["pagination"] as? [String: Any], data?["meta"] as? [String: Any]].compactMap({ $0 }) {
             for key in ["total", "total_count", "totalCount", "records_total", "recordsTotal"] {

@@ -10,29 +10,30 @@ final class MacFileAccess {
     private var readTask: Task<Data, Error>?
     private var copyTask: Task<Void, Error>?
     func reset() { operation = nil; panel?.cancel(nil); panel = nil; readTask?.cancel(); readTask = nil; copyTask?.cancel(); copyTask = nil }
-    func choose(collection: DocumentCollection, window: NSWindow, valid: @escaping () -> Bool) async throws -> DocumentUpload? {
+    func choose(collection: DocumentCollection, allowedMIMETypes: Set<String>? = nil, maximumBytes: Int = ServerDocument.maximumBytes, window: NSWindow, valid: @escaping () -> Bool) async throws -> DocumentUpload? {
         guard valid(), window.isVisible else { throw CancellationError() }
+        let allowed = allowedMIMETypes ?? collection.allowedMIMETypes
         let id = UUID(); operation = id
         let picker = NSOpenPanel(); panel = picker
         picker.allowsMultipleSelection = false; picker.canChooseDirectories = false
-        picker.allowedContentTypes = collection.allowedMIMETypes.compactMap { UTType(mimeType: $0) }
+        picker.allowedContentTypes = allowed.compactMap { UTType(mimeType: $0) }
         let response: NSApplication.ModalResponse = await withCheckedContinuation { continuation in picker.beginSheetModal(for: window) { continuation.resume(returning: $0) } }
         guard operation == id, valid(), window.isVisible else { throw CancellationError() }
         defer { if operation == id { panel = nil; readTask = nil; operation = nil } }
         guard response == .OK, let url = picker.url else { return nil }
         let mime = Self.mimeType(url)
-        guard collection.allowedMIMETypes.contains(mime) else { throw AppServiceError.message("Этот формат документа не поддерживается.") }
+        guard allowed.contains(mime) else { throw AppServiceError.message("Этот формат документа не поддерживается.") }
         let task = Task.detached(priority: .userInitiated) {
             let accessed = url.startAccessingSecurityScopedResource()
             defer { if accessed { url.stopAccessingSecurityScopedResource() } }
             let metadata = try url.resourceValues(forKeys: [.isRegularFileKey, .fileSizeKey])
-            guard metadata.isRegularFile == true, (metadata.fileSize ?? 0) <= ServerDocument.maximumBytes else { throw AppServiceError.message("Выберите обычный файл до 20 МБ.") }
+            guard metadata.isRegularFile == true, (metadata.fileSize ?? 0) <= maximumBytes else { throw AppServiceError.message("Выберите обычный файл до \(maximumBytes / 1024 / 1024) МБ.") }
             let handle = try FileHandle(forReadingFrom: url); defer { try? handle.close() }
             var data = Data()
             while true {
                 try Task.checkCancellation()
                 guard let chunk = try handle.read(upToCount: 64 * 1024), !chunk.isEmpty else { break }
-                guard data.count + chunk.count <= ServerDocument.maximumBytes else { throw AppServiceError.message("Документ превышает 20 МБ.") }
+                guard data.count + chunk.count <= maximumBytes else { throw AppServiceError.message("Файл превышает \(maximumBytes / 1024 / 1024) МБ.") }
                 data.append(chunk)
             }
             return data

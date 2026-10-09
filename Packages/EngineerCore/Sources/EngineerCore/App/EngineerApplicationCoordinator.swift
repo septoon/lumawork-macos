@@ -36,6 +36,14 @@ public final class EngineerApplicationCoordinator {
     }
     public func accepts(_ captured: SessionContext) -> Bool { context == captured }
 
+    public func applyUpdatedUser(_ user: AppUser, expectedContext: SessionContext) throws {
+        guard accepts(expectedContext), user.id == expectedContext.userID, var saved = retained, saved.app.user.id == user.id else { throw CancellationError() }
+        saved.app.user = user
+        try credentials.write(saved)
+        if session?.user.role != user.role || session?.user.adminPermissions != user.adminPermissions { advanceEpoch() }
+        retained = saved; session = saved.app
+    }
+
     public func restore() async {
         guard !restored else { return }
         do {
