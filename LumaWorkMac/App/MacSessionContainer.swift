@@ -33,6 +33,14 @@ final class MacSessionContainer {
                                          }, service: { [config] in GsmFuelService(config: config, authToken: $0.token) },
                                          authFailure: { [coordinator] in coordinator.invalidateSession(message: "Сессия истекла. Войдите снова.") })
 
+    lazy var clients = ClientDetailsRepository(session: { [coordinator] in coordinator.session },
+                                                context: { [coordinator] in coordinator.context },
+                                                storage: { [weak self] in
+                                                    guard let self else { throw SnapshotStorageError.missingIdentity }
+                                                    return try self.snapshotStorage()
+                                                }, service: { [config] in ClientDetailsService(config: config, token: $0.token) },
+                                                authFailure: { [coordinator] in coordinator.invalidateSession(message: "Сессия истекла. Войдите снова.") })
+
     init(config: AppConfig = AppConfig()) {
         self.config = config
         let keychain = MacKeychain(config: config)

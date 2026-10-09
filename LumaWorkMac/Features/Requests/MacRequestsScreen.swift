@@ -4,6 +4,7 @@ import EngineerCore
 struct MacRequestsScreen: View {
     @Bindable var workspace: MacRequestsWorkspace
     let repository: RequestsRepository
+    let clients: ClientDetailsRepository
     let coordinator: EngineerApplicationCoordinator
     let config: AppConfig
     let openAccount: () -> Void
@@ -51,7 +52,7 @@ struct MacRequestsScreen: View {
                     HSplitView {
                         table.frame(minWidth: 440)
                         if let record = workspace.detail ?? selected {
-                            MacRequestDetailView(record: record, isLoading: workspace.isLoadingDetail, error: workspace.detailError,
+                            MacRequestDetailView(clients: clients, coordinator: coordinator, workspace: workspace, record: record, isLoading: workspace.isLoadingDetail, error: workspace.detailError,
                                                  refresh: { loadDetail(force: true) }, openBrowser: { workspace.browserRecord = record })
                                 .frame(minWidth: 270, idealWidth: 320, maxWidth: 450)
                         }
@@ -76,6 +77,13 @@ struct MacRequestsScreen: View {
         .onChange(of: workspace.status) { _, _ in reconcileSelection() }
         .onChange(of: workspace.excludedTypes) { _, _ in reconcileSelection() }
         .task(id: listKey + "|" + (workspace.selection ?? "")) { await fetchDetail(force: false) }
+        .sheet(item: $workspace.archiveImport.preview) { preview in
+            MacArchiveImportPreview(preview: preview, repository: repository, coordinator: coordinator, model: workspace.archiveImport)
+        }
+        .sheet(item: $workspace.clientDraft) { draft in
+            MacClientCommentEditor(workspace: workspace, repository: clients, draft: draft)
+        }
+        .sheet(item: $workspace.company) { selection in MacCompanySheet(tin: selection.id, repository: clients) }
         .sheet(item: $workspace.browserRecord) { record in
             MacSimpleOneBrowser(record: record, coordinator: coordinator, config: config)
         }
@@ -113,6 +121,10 @@ struct MacRequestsScreen: View {
                         .labelsHidden().pickerStyle(.segmented).frame(width: 280)
                 } else { Text(collection.title).font(.headline) }
                 Spacer(minLength: 0)
+                if collection == .personal(.closed) {
+                    Button { workspace.archiveImport.choose(coordinator: coordinator) } label: { Image(systemName: "square.and.arrow.down") }
+                        .help("Импортировать XLSX в личный архив").disabled(workspace.archiveImport.isBusy)
+                }
                 if isClosed {
                     Button { exportArchive() } label: { Image(systemName: "square.and.arrow.up") }
                         .help("Экспортировать весь архив в XLSX")
@@ -182,8 +194,17 @@ struct MacRequestsScreen: View {
                 if repository.offline.contains(collection) { Label("Локальные данные", systemImage: "wifi.slash").foregroundStyle(.secondary) }
                 if let date = repository.updatedAt(collection) { Text(date, format: .dateTime.day().month().hour().minute()).foregroundStyle(.secondary) }
             }
+            if isClosed, let progress = repository.archiveProgress[collection] {
+                HStack {
+                    Text("Загружено: \(progress.loaded)" + (progress.total.map { " из \($0)" } ?? ""))
+                    if !repository.loading.contains(collection), progress.canResume {
+                        Button("Продолжить") { Task { try? await repository.load(collection) } }
+                    }
+                }.foregroundStyle(.secondary)
+            }
+            if let notice = repository.archiveNotice, collection == .personal(.closed) { Text(notice).foregroundStyle(.secondary) }
             if let notice = workspace.spreadsheet.notice { Text(notice).foregroundStyle(.secondary) }
-            if let error = workspace.spreadsheet.error ?? repository.errors[collection] ?? repository.cacheWarning {
+            if let error = workspace.archiveImport.error ?? workspace.spreadsheet.error ?? repository.errors[collection] ?? repository.cacheWarning {
                 Label(error, systemImage: "exclamationmark.triangle").foregroundStyle(.red).textSelection(.enabled)
             }
         }.font(.callout)

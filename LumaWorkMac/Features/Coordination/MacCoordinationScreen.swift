@@ -21,6 +21,7 @@ final class MacCoordinationWorkspace {
 struct MacCoordinationScreen: View {
     @Bindable var workspace: MacCoordinationWorkspace
     let repository: RequestsRepository
+    let clients: ClientDetailsRepository
     let coordinator: EngineerApplicationCoordinator
     let config: AppConfig
     let openAccount: () -> Void
@@ -55,7 +56,7 @@ struct MacCoordinationScreen: View {
                     }.listStyle(.sidebar).frame(minWidth: 180, idealWidth: 210, maxWidth: 260)
                 }
                 MacRequestsScreen(workspace: workspace.section == .archive ? workspace.archive : workspace.requests,
-                                  repository: repository, coordinator: coordinator, config: config, openAccount: openAccount,
+                                  repository: repository, clients: clients, coordinator: coordinator, config: config, openAccount: openAccount,
                                   collectionOverride: collection, engineerID: workspace.section == .distribution && workspace.engineer != "all" ? workspace.engineer : nil)
             }
         }

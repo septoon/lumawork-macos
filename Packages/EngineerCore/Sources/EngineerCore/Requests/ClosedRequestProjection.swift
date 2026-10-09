@@ -73,7 +73,7 @@ extension ClosedRequestRecord {
 enum ClosedRequestProjection {
     static func closedRequestRecord(from record: SimpleOneRequestRecord) -> ClosedRequestRecord {
         let infoFields = simpleOneInfoFields(from: record)
-        let merchantTIN = simpleOneInfoValue(for: "ИНН ТСП", in: infoFields)
+        let merchantTIN = record.merchantTIN
         let closureCode = simpleOneInfoValue(for: "Код закрытия", in: infoFields)
         let resolution = simpleOneInfoValue(for: "Решение", in: infoFields)
         return ClosedRequestRecord(

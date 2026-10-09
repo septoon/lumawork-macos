@@ -179,3 +179,11 @@ public struct ClosedRequestInfoField: Codable, Hashable, Identifiable, Sendable 
     public var value: String
     public init(key: String, value: String) { self.key = key; self.value = value }
 }
+
+public extension SimpleOneRequestRecord {
+    var merchantTIN: String {
+        let direct = (tableFields ?? []).filter { $0.key.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() == "инн тсп" }
+            .map { ClosedRequestsMerchantTINSupport.normalizedValidTIN($0.value) }.first { !$0.isEmpty } ?? ""
+        return ClosedRequestsMerchantTINSupport.resolvedTIN(directTIN: direct, information: informationText)
+    }
+}

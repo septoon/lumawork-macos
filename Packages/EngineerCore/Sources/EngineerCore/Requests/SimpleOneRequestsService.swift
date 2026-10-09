@@ -1,9 +1,12 @@
 import Foundation
+import CryptoKit
 
 public protocol SimpleOneRequestsServing: Sendable {
     func fetch(source: SimpleOneRequestSource, userID: String, authKey: String) async throws -> [SimpleOneRequestRecord]
     func fetch(collection: RequestCollection, userID: String, authKey: String) async throws -> [SimpleOneRequestRecord]
     func fetchTimeReports(authKey: String) async throws -> [TimeReportEntry]
+    func archiveIdentity(collection: RequestCollection, userID: String) throws -> String
+    func fetchArchivePage(collection: RequestCollection, userID: String, authKey: String, page: Int) async throws -> RequestsArchivePage
     func detail(record: SimpleOneRequestRecord, authKey: String) async throws -> SimpleOneRequestRecord
 }
 
@@ -39,6 +42,26 @@ public struct SimpleOneRequestsService: SimpleOneRequestsServing {
             if $0.primaryDate != $1.primaryDate { return $0.primaryDate > $1.primaryDate }
             return $0.number.localizedStandardCompare($1.number) == .orderedDescending
         }
+    }
+    public func archiveIdentity(collection: RequestCollection, userID: String) throws -> String {
+        let value = baseURL.absoluteString + "|archive.v1|" + (try query.condition(collection: collection, userID: userID))
+        return SHA256.hash(data: Data(value.utf8)).map { String(format: "%02x", $0) }.joined()
+    }
+    public func fetchArchivePage(collection: RequestCollection, userID: String, authKey: String, page: Int) async throws -> RequestsArchivePage {
+        guard collection.source == .closed, page > 0 else { throw SimpleOneServiceError.invalidResponse }
+        let condition = try query.condition(collection: collection, userID: userID) + "^ORDERBYDESCsys_updated_at^ORDERBYDESCsys_id"
+        guard var components = URLComponents(url: baseURL.appendingPathComponent("list/itsm_request"), resolvingAgainstBaseURL: false) else { throw SimpleOneServiceError.invalidURL }
+        components.queryItems = [URLQueryItem(name: "condition", value: condition), URLQueryItem(name: "page", value: String(page)), URLQueryItem(name: "per_page", value: "100"), URLQueryItem(name: "columns", value: Self.columns.joined(separator: ","))]
+        guard let url = components.url else { throw SimpleOneServiceError.invalidURL }
+        let response = try await request(url: url, authKey: authKey)
+        guard let items = listItems(response) else { throw SimpleOneServiceError.invalidResponse }
+        let records = try items.map { item in
+            let record = makeRequestRecord(from: item, source: .closed)
+            guard !record.sysID.isEmpty, !record.number.isEmpty else { throw SimpleOneServiceError.invalidResponse }
+            return record
+        }
+        let total = totalCount(response)
+        return RequestsArchivePage(records: records, total: total, hasMore: total.map { page * 100 < $0 } ?? (records.count == 100))
     }
     public func fetchTimeReports(authKey: String) async throws -> [TimeReportEntry] {
         let items = try await fetchAllRows(table: "itsm_tchnsrv_time_report", condition: query.timeReportCondition(), columns: [], authKey: authKey)

@@ -121,7 +121,9 @@ public struct HTTPClient {
         method: String = "GET",
         body: Any? = nil,
         authToken: String? = nil,
-        allowEmpty: Bool = true
+        allowEmpty: Bool = true,
+        headers: [String: String] = [:],
+        redactDiagnostics: Bool = false
     ) async throws -> HTTPResponse {
         var request = URLRequest(url: url)
         request.httpMethod = method
@@ -131,6 +133,7 @@ public struct HTTPClient {
         request.setValue("no-cache", forHTTPHeaderField: "Pragma")
         request.timeoutInterval = 20
         AppBuildIdentity.apply(to: &request)
+        for (key, value) in headers { request.setValue(value, forHTTPHeaderField: key) }
 
         if let authToken, !authToken.isEmpty {
             request.setValue("Bearer \(authToken)", forHTTPHeaderField: "Authorization")
@@ -141,32 +144,42 @@ public struct HTTPClient {
             request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         }
 
-        NetworkDiagnostics.logRequest(request, body: body)
+        var diagnosticRequest = request
+        if redactDiagnostics {
+            var parts = URLComponents(url: url, resolvingAgainstBaseURL: false)
+            parts?.path = "/api/v2"; parts?.query = nil; parts?.fragment = nil
+            diagnosticRequest.url = parts?.url
+        }
+        let diagnosticURL = diagnosticRequest.url ?? url
+        NetworkDiagnostics.logRequest(diagnosticRequest, body: redactDiagnostics ? nil : body)
 
         let data: Data
         let response: URLResponse
         do {
             (data, response) = try await session.data(for: request)
         } catch {
-            NetworkDiagnostics.logError(url: url, method: method, error: error)
+            if redactDiagnostics {
+                NetworkDiagnostics.logger.error("HTTP request failed: code=\((error as NSError).code)")
+            } else { NetworkDiagnostics.logError(url: diagnosticURL, method: method, error: error) }
             throw error
         }
 
         guard let httpResponse = response as? HTTPURLResponse else {
             NetworkDiagnostics.logger.error(
-                "HTTP response casting failed: \(url.absoluteString, privacy: .public)"
+                "HTTP response casting failed: \(diagnosticURL.absoluteString, privacy: .public)"
             )
             throw AppServiceError.message("Сервер вернул неизвестный ответ.")
         }
 
-        NetworkDiagnostics.logResponse(url: url, statusCode: httpResponse.statusCode, data: data)
+        NetworkDiagnostics.logResponse(url: diagnosticURL, statusCode: httpResponse.statusCode, data: data)
 
         if method != "GET" {
             URLCache.shared.removeCachedResponse(for: request)
         }
 
         guard (200 ..< 300).contains(httpResponse.statusCode) || httpResponse.statusCode == 204 else {
-            throw AppServiceError.http(status: httpResponse.statusCode, fallback: "Ошибка сервера")
+            let row = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any]
+            throw AppServiceError.http(status: httpResponse.statusCode, fallback: row?["message"] as? String ?? "Ошибка сервера")
         }
 
         if data.isEmpty {

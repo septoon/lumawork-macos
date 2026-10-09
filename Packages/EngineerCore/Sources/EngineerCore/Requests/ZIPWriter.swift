@@ -79,7 +79,7 @@ enum ZIPWriter {
         for _ in 0..<8 { crc = crc & 1 == 1 ? (crc >> 1) ^ 0xedb88320 : crc >> 1 }
         return crc
     }
-    private static func crc32(_ data: Data) throws -> UInt32 {
+    static func crc32(_ data: Data) throws -> UInt32 {
         var crc: UInt32 = 0xffffffff
         for (index, byte) in data.enumerated() {
             if index & 4095 == 0 { try Task.checkCancellation() }

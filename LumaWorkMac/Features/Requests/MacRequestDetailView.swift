@@ -2,6 +2,9 @@ import SwiftUI
 import EngineerCore
 
 struct MacRequestDetailView: View {
+    let clients: ClientDetailsRepository
+    let coordinator: EngineerApplicationCoordinator
+    let workspace: MacRequestsWorkspace
     let record: SimpleOneRequestRecord
     let isLoading: Bool
     let error: String?
@@ -39,6 +42,7 @@ struct MacRequestDetailView: View {
                 value("Комментарий инженера", record.engineerComment)
                 value("Код закрытия", record.closureCode ?? "")
                 value("Решение", record.resolution ?? "")
+                MacClientDetails(record: record, repository: clients, coordinator: coordinator, workspace: workspace)
                 value("Информация", record.informationText)
                 if let fields = record.tableFields {
                     DisclosureGroup("Все поля заявки") {

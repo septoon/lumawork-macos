@@ -32,11 +32,11 @@ extension SimpleOneRequestsService {
             infoValue(for: ["ID СБП"], in: infoFields),
             labeledTextValue(for: ["ID СБП"], in: infoTexts)
         )
-        let merchantTIN = firstNonEmpty(
+        let merchantTIN = ClosedRequestsMerchantTINSupport.resolvedTIN(directTIN: firstNonEmpty(
             fieldString(item, "multicard_merchant_tin", "multicard_tsp_inn", "merchant_tin", "inn_tsp", "ИНН ТСП"),
             infoValue(for: ["ИНН ТСП"], in: infoFields),
             labeledTextValue(for: ["ИНН ТСП"], in: infoTexts)
-        )
+        ), information: infoTexts.joined(separator: "\n"))
         let closureCode = firstNonEmpty(
             fieldDisplayString(
                 item,

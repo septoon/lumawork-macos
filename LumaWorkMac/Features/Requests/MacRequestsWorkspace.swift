@@ -42,7 +42,14 @@ final class MacRequestsWorkspace {
     var detailError: String?
     var isLoadingDetail = false
     var spreadsheet = MacSpreadsheetExport()
+    var archiveImport = MacArchiveImport()
+    var clientDraft: ClientPersonalCommentDraft?
+    var clientBaseline: ClientPersonalCommentDraft?
+    var clientContext: SessionContext?
+    var company: MacCompanySelection?
+    var hasDirtyClient: Bool { clientDraft != nil && clientDraft != clientBaseline }
+    func discardClientDraft() { clientDraft = nil; clientBaseline = nil; clientContext = nil }
     var browserRecord: SimpleOneRequestRecord?
     func clearResults() { prepared = []; selection = nil; detail = nil; detailError = nil; isLoadingDetail = false; browserRecord = nil }
-    func reset() { spreadsheet.reset(); clearResults(); search = ""; excludedTypes = [] }
+    func reset() { discardClientDraft(); company = nil; archiveImport.reset(); spreadsheet.reset(); clearResults(); search = ""; excludedTypes = [] }
 }

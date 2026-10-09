@@ -69,10 +69,10 @@ struct MacWorkspaceView: View {
                     } else if visibleSection == .fuel {
                         MacFuelScreen(workspace: fuel, repository: container.gsmFuel, routes: container.routes, coordinator: coordinator, archiveOwnerEmail: container.config.fuelArchiveOwnerEmail)
                     } else if visibleSection == .requests {
-                        MacRequestsScreen(workspace: requests, repository: container.requests, coordinator: coordinator, config: container.config,
+                        MacRequestsScreen(workspace: requests, repository: container.requests, clients: container.clients, coordinator: coordinator, config: container.config,
                                           openAccount: { workspace.isAccountPresented = true })
                     } else if visibleSection == .coordination {
-                        MacCoordinationScreen(workspace: coordination, repository: container.requests, coordinator: coordinator, config: container.config,
+                        MacCoordinationScreen(workspace: coordination, repository: container.requests, clients: container.clients, coordinator: coordinator, config: container.config,
                                               openAccount: { workspace.isAccountPresented = true })
                     } else if visibleSection == .timeReport {
                         MacTimeReportsScreen(workspace: timeReports, repository: container.requests, coordinator: coordinator, config: container.config,
@@ -100,8 +100,8 @@ struct MacWorkspaceView: View {
         }
         .focusedSceneValue(\.workspaceActions, commands)
         .focusedSceneValue(\.routeActions, visibleSection == .home ? routeActions : nil)
-        .background(MacWindowDraftGuard(id: workspace.windowID, hasDirty: { route.draft?.isDirty == true || fuel.hasDirty },
-                                        save: { try await route.save(repository: container.routes) }, discard: { if fuel.hasDirty { fuel.discardEditors() } else { route.draft?.discard() } }, discardOnly: { fuel.hasDirty }))
+        .background(MacWindowDraftGuard(id: workspace.windowID, hasDirty: { route.draft?.isDirty == true || fuel.hasDirty || hasDirtyClient },
+                                        save: { try await route.save(repository: container.routes) }, discard: { if hasDirtyClient { discardClients() } else if fuel.hasDirty { fuel.discardEditors() } else { route.draft?.discard() } }, discardOnly: { fuel.hasDirty || hasDirtyClient }))
         .sheet(isPresented: $workspace.isAccountPresented) { MacAccountView(coordinator: coordinator, logout: commands.logout) }
         .sheet(isPresented: Binding(get: { visibleSection == .home && fuel.isGsmPresented }, set: { fuel.isGsmPresented = $0 })) {
             MacGsmReportScreen(workspace: fuel, repository: container.gsmFuel, coordinator: coordinator, selectedDate: route.selectedDate,
@@ -115,10 +115,10 @@ struct MacWorkspaceView: View {
             persistSelection()
             if let date = MacRouteDate.date(restoredRouteDate) { route.selectedDate = date }
             route.workType = RouteWorkType(rawValue: restoredRouteType) ?? .pos
-            container.routes.synchronizeSession(); container.gsmFuel.synchronizeSession(); container.requests.synchronizeSession()
+            container.routes.synchronizeSession(); container.gsmFuel.synchronizeSession(); container.requests.synchronizeSession(); container.clients.synchronizeSession()
         }
         .onChange(of: coordinator.context) { _, _ in
-            container.routes.synchronizeSession(); container.gsmFuel.synchronizeSession(); container.requests.synchronizeSession()
+            container.routes.synchronizeSession(); container.gsmFuel.synchronizeSession(); container.requests.synchronizeSession(); container.clients.synchronizeSession()
             fuel.reset(); requests.reset(); coordination.reset(); timeReports.reset(); analytics.reset()
         }
         .onChange(of: route.selectedDate) { _, date in restoredRouteDate = MacRouteDate.key(date) }
@@ -129,6 +129,9 @@ struct MacWorkspaceView: View {
         }
         .onChange(of: workspace.selectedSection) { _, _ in persistSelection() }
     }
+
+    private var hasDirtyClient: Bool { requests.hasDirtyClient || coordination.requests.hasDirtyClient || coordination.archive.hasDirtyClient }
+    private func discardClients() { requests.discardClientDraft(); coordination.requests.discardClientDraft(); coordination.archive.discardClientDraft() }
 
     private var routeActions: MacRouteActions {
         MacRouteActions(canSave: route.draft?.isDirty == true && !route.isBusy,
