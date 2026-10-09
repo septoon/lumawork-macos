@@ -31,8 +31,9 @@ final class MacTimeReportsWorkspace {
     var selection: String?
     var rows: [MacTimeReportRow] = []
     var browser: MacTimeReportBrowserSelection?
+    var spreadsheet = MacSpreadsheetExport()
     var browserContext: SessionContext?
-    func reset() { day = ""; search = ""; selection = nil; rows = []; browser = nil; browserContext = nil }
+    func reset() { spreadsheet.reset(); day = ""; search = ""; selection = nil; rows = []; browser = nil; browserContext = nil }
 }
 
 struct MacTimeReportsScreen: View {
@@ -112,7 +113,10 @@ struct MacTimeReportsScreen: View {
                 Toggle("Все месяцы", isOn: $workspace.allMonths).toggleStyle(.checkbox)
                 Spacer()
                 TextField("Поиск", text: $workspace.search).textFieldStyle(.roundedBorder).frame(maxWidth: 220)
-                if repository.isLoadingTime { ProgressView().controlSize(.small) }
+                Button { exportTimeReports() } label: { Image(systemName: "square.and.arrow.up") }
+                    .help("Экспортировать все трудозатраты в XLSX")
+                    .disabled(workspace.spreadsheet.isBusy || repository.timeUpdatedAt == nil)
+                if repository.isLoadingTime || workspace.spreadsheet.isBusy { ProgressView().controlSize(.small) }
                 Button { Task { try? await repository.loadTimeReports(force: true) } } label: { Image(systemName: "arrow.clockwise") }
                     .help("Обновить из SimpleOne").disabled(repository.isLoadingTime)
             }
@@ -170,8 +174,15 @@ struct MacTimeReportsScreen: View {
                 if repository.timeOffline { Label("Локальные данные", systemImage: "wifi.slash").foregroundStyle(.secondary) }
                 if let date = repository.timeUpdatedAt { Text(date, format: .dateTime.day().month().hour().minute()).foregroundStyle(.secondary) }
             }
-            if let error = repository.timeError ?? repository.cacheWarning { Label(error, systemImage: "exclamationmark.triangle").foregroundStyle(.red).textSelection(.enabled) }
+            if let notice = workspace.spreadsheet.notice { Text(notice).foregroundStyle(.secondary) }
+            if let error = workspace.spreadsheet.error ?? repository.timeError ?? repository.cacheWarning { Label(error, systemImage: "exclamationmark.triangle").foregroundStyle(.red).textSelection(.enabled) }
         }.font(.callout)
+    }
+    private func exportTimeReports() {
+        let entries = repository.timeEntries
+        workspace.spreadsheet.save(name: "Инженер-time-report.xlsx", coordinator: coordinator) {
+            try RequestsWorkbookExporter.makeTimeReportWorkbook(entries: entries)
+        }
     }
     private func open(_ entry: TimeReportEntry) {
         guard let id = entry.simpleOneRecordID, !id.isEmpty else { return }

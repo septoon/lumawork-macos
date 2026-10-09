@@ -41,7 +41,8 @@ final class MacRequestsWorkspace {
     var detail: SimpleOneRequestRecord?
     var detailError: String?
     var isLoadingDetail = false
+    var spreadsheet = MacSpreadsheetExport()
     var browserRecord: SimpleOneRequestRecord?
     func clearResults() { prepared = []; selection = nil; detail = nil; detailError = nil; isLoadingDetail = false; browserRecord = nil }
-    func reset() { clearResults(); search = ""; excludedTypes = [] }
+    func reset() { spreadsheet.reset(); clearResults(); search = ""; excludedTypes = [] }
 }

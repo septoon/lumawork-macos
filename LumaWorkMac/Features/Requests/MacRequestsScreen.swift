@@ -85,6 +85,13 @@ struct MacRequestsScreen: View {
             .task(id: refreshKey) { try? await repository.load(collection) }
             .task(id: listKey) { await prepareRows() }
     }
+    private func exportArchive() {
+        let records = repository.records(collection)
+        let name = collection == .groupClosed ? "Инженер-group-requests.xlsx" : "Инженер-requests.xlsx"
+        workspace.spreadsheet.save(name: name, coordinator: coordinator) {
+            try RequestsWorkbookExporter.makeClosedRequestsWorkbook(records: records)
+        }
+    }
     private func prepareRows() async {
         let captured = coordinator.context, records = repository.records(collection)
         let capturedCollection = collection
@@ -106,6 +113,12 @@ struct MacRequestsScreen: View {
                         .labelsHidden().pickerStyle(.segmented).frame(width: 280)
                 } else { Text(collection.title).font(.headline) }
                 Spacer(minLength: 0)
+                if isClosed {
+                    Button { exportArchive() } label: { Image(systemName: "square.and.arrow.up") }
+                        .help("Экспортировать весь архив в XLSX")
+                        .disabled(workspace.spreadsheet.isBusy || !repository.hasSnapshot(collection))
+                    if workspace.spreadsheet.isBusy { ProgressView().controlSize(.small) }
+                }
                 TextField("Поиск по заявкам", text: $workspace.search).textFieldStyle(.roundedBorder).frame(minWidth: 100, maxWidth: 240)
                 if repository.loading.contains(collection) { ProgressView().controlSize(.small) }
                 Button { Task { try? await repository.load(collection, force: true) } } label: { Image(systemName: "arrow.clockwise") }
@@ -169,7 +182,8 @@ struct MacRequestsScreen: View {
                 if repository.offline.contains(collection) { Label("Локальные данные", systemImage: "wifi.slash").foregroundStyle(.secondary) }
                 if let date = repository.updatedAt(collection) { Text(date, format: .dateTime.day().month().hour().minute()).foregroundStyle(.secondary) }
             }
-            if let error = repository.errors[collection] ?? repository.cacheWarning {
+            if let notice = workspace.spreadsheet.notice { Text(notice).foregroundStyle(.secondary) }
+            if let error = workspace.spreadsheet.error ?? repository.errors[collection] ?? repository.cacheWarning {
                 Label(error, systemImage: "exclamationmark.triangle").foregroundStyle(.red).textSelection(.enabled)
             }
         }.font(.callout)
